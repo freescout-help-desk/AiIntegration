@@ -23,6 +23,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'name' => 'Google AI Studio (Gemini)',
             'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai',
             'requires_api_key' => true,
+            'get_models_endpoint' => '/v1beta/models',
             'embedding_model' => 'gemini-embedding-001',
         ],
         /*'anthropic' => [
@@ -134,7 +135,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
     {
         // Add module's JS file to the application layout.
         \Eventy::addFilter('javascripts', function($javascripts) {
-            //$javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/laroute.js';
+            $javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/laroute.js';
             $javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/module.js';
             return $javascripts;
         });

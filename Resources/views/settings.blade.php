@@ -45,7 +45,7 @@
             <input id="aiintegration_base_url" type="text" class="form-control input-sized-lg" name="settings[aiintegration.base_url]" value="{{ old('settings.aiintegration.base_url', $settings['aiintegration.base_url']) }}" placeholder="{{ __('(optional)') }}">
 
             <p class="form-help" id="aii_default_base_url">
-                {{ __('Default') }}: <span id="aii_default_base_url_value">{{ AiIntegration::getProvider()['base_url'] ?? '' }}</span>
+                {{ __('Default') }}: <i id="aii_default_base_url_value">{{ AiIntegration::getProvider()['base_url'] ?? '' }}</i>
             </p>
         </div>
     </div>
@@ -54,14 +54,19 @@
         <label for="aiintegration_model" class="col-sm-2 control-label">{{ __('Model') }}</label>
 
         <div class="col-sm-6">
-            <select type="text" id="aiintegration_model" class="form-control input-sized-lg" name="settings[aiintegration.model]" autocomplete="off">
-                @php
-                    $model = old('settings.aiintegration.model', $settings['aiintegration.model']);
-                @endphp
-                @if ($model)
-                    <option value="{{ $model }}">{{ $model }}</option>
-                @endif
-            </select>
+            <div class="input-group input-sized-lg">
+                <select type="text" id="aiintegration_model" class="form-control" name="settings[aiintegration.model]" autocomplete="off">
+                    @php
+                        $model = old('settings.aiintegration.model', $settings['aiintegration.model']);
+                    @endphp
+                    @if ($model)
+                        <option value="{{ $model }}">{{ $model }}</option>
+                    @endif
+                </select>
+                <span class="input-group-btn">
+                    <button class="btn btn-default" type="button" id="aii_load_models" data-loading-text="{{ __('Load') }}">{{ __('Load') }}</button>
+                </span>
+            </div>
         </div>
     </div>
 

@@ -9,64 +9,31 @@ use Illuminate\Routing\Controller;
 class AiIntegrationController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     * @return Response
+     * Ajax controller.
      */
-    public function index()
+    public function ajaxAdmin(Request $request)
     {
-        return view('aiintegration::index');
-    }
+        $response = [
+            'status' => 'error',
+            'msg'    => '', // this is error message
+        ];
 
-    /**
-     * Show the form for creating a new resource.
-     * @return Response
-     */
-    public function create()
-    {
-        return view('aiintegration::create');
-    }
+        switch ($request->action) {
 
-    /**
-     * Store a newly created resource in storage.
-     * @param  Request $request
-     * @return Response
-     */
-    public function store(Request $request)
-    {
-    }
+            case 'load_models':
+                $response['status'] = 'success';
+                $response['models'] = ['11', '22'];
+                break;
 
-    /**
-     * Show the specified resource.
-     * @return Response
-     */
-    public function show()
-    {
-        return view('aiintegration::show');
-    }
+            default:
+                $response['msg'] = 'Unknown action';
+                break;
+        }
 
-    /**
-     * Show the form for editing the specified resource.
-     * @return Response
-     */
-    public function edit()
-    {
-        return view('aiintegration::edit');
-    }
+        if ($response['status'] == 'error' && empty($response['msg'])) {
+            $response['msg'] = 'Unknown error occured';
+        }
 
-    /**
-     * Update the specified resource in storage.
-     * @param  Request $request
-     * @return Response
-     */
-    public function update(Request $request)
-    {
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     * @return Response
-     */
-    public function destroy()
-    {
+        return \Response::json($response);
     }
 }

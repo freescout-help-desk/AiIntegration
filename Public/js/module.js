@@ -19,6 +19,65 @@ function aiiInitSettings()
 
 		$("#aiintegration_model").select2({...fs_select2_config, ...{
 			maximumSelectionLength: 1
-		}});
+			//multiple: false
+		}}).on('select2:selecting', function(e) {
+			// Allow only one element to be selected.
+			//var data = e.params.data;
+			if ($("#aiintegration_model").val().length) {
+				$("#aiintegration_model").val('');
+			    // e.preventDefault();
+			    // return false;
+			}
+		});;
+
+		$("#aii_load_models").click(function(e){
+			var button = $(this);
+	    	button.button('loading');
+	    	$('#aiintegration_model').attr('disabled', 'disabled');
+			fsAjax(
+				{
+					action: 'load_models',
+					provider: $('#aiintegration_provider').val(),
+					api_key: $('#aiintegration_api_key').val(),
+					base_url: $('#aiintegration_base_url').val()
+				},
+				laroute.route('aiintegration.ajax_admin'), 
+				function(response) {
+					if (isAjaxSuccess(response)) {
+						if (typeof(response.models) != "undefined") {
+							button.button('reset');
+
+							var selected_model = $('#aiintegration_model').val();
+							if (selected_model.length) {
+								selected_model = selected_model[0];
+							} else {
+								selected_model = '';
+							}
+							// Load options.
+							var html = '';
+							var first_val = '';
+							for (var i in response.models) {
+								var model = htmlEscape(response.models[i]);
+								if (!first_val) {
+									first_val = model;
+								}
+								html += '<option value="'+model+'">'+model+'</option>';
+							}
+							if (!selected_model && first_val) {
+								selected_model = first_val;
+							}
+							$('#aiintegration_model').html(html)
+								.val(selected_model)
+								.select2()
+								.trigger('change');
+						}
+					} else {
+						showAjaxError(response);
+						button.button('reset');
+					}
+					$('#aiintegration_model').removeAttr('disabled');
+				}, true
+			);
+		});
 	});
 }
