@@ -2,6 +2,7 @@
 
 namespace Modules\AiIntegration\Providers;
 
+use Modules\AiIntegration\Misc\ApiCallException;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
 
@@ -23,8 +24,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'name' => 'Google AI Studio (Gemini)',
             'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai',
             'requires_api_key' => true,
-            'get_models_endpoint' => '/v1beta/models',
+            //'models_endpoint' => '/v1beta/models',
             'embedding_model' => 'gemini-embedding-001',
+            'get_models' => static function($base_url, $api_key) {
+                return preg_replace("#/openai/?$#", '/models', $base_url).'?key='.$api_key;
+            },
         ],
         /*'anthropic' => [
             'name' => 'Anthropic (Claude)',
@@ -202,11 +206,18 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 return $request;
             }
 
-            $new_settings = $request->settings ?? [];
+            $settings = $request->settings ?? [];
             
             //$new_settings['test'] = $custom_statuses;
+            // Do not save dummy value.
+            if (\Helper::isSafePassword($settings['aiintegration.api_key'])) {
+                // Get prev value.
+                $settings['aiintegration.api_key'] = self::getSetting('api_key');
+            }
 
-            $request->merge(['settings' => array_merge($request->settings ?? [], $new_settings)]);
+            $request->merge([
+                'settings' => $settings
+            ]);
 
             return $request;
         }, 20, 3);
@@ -251,9 +262,183 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return self::$providers;
     }
 
-    public static function getProvider()
+    public static function getProviderConfig($param = '')
     {
-        return self::$providers[self::getSetting('provider')] ?? [];
+        if ($param) {
+            return self::$providers[self::getSetting('provider')][$param] ?? '';
+        } else {
+            return self::$providers[self::getSetting('provider')] ?? [];
+        }
+    }
+
+    public static function apiGetModels()
+    {
+        try {
+            $response = self::apiRequest('/models');
+        } catch (ApiCallException $e) {
+            return [
+                'status' => 'error',
+                'msg' => $e->getMessage()
+            ];
+        }
+        $models = [];
+        if (!empty($response['models'])) {
+            $models = array_column($response['models'], 'name');
+        }
+
+        return [
+            'status' => 'success',
+            'models' => $models,
+        ];
+    }
+
+    public static function apiChatCompletions($content, $json_schema, $max_tokens = 1000)
+    {
+        $data = [
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => '',
+                ],
+                [
+                    'role' => 'user',
+                    'content' => json_encode($content, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                ],
+            ],
+            'max_tokens' => $max_tokens,
+            'model' => $model,
+            'response_format' => [
+                'type' => 'json_schema',
+                'json_schema' => $json_schema,
+            ]
+        ];
+
+        try {
+            $response = self::apiRequest('/chat/completions', $data);
+        } catch (ApiCallException $e) {
+            self::logApiEexception($e);
+            return [
+                'status' => 'error',
+                'msg' => $e->getMessage()
+            ];
+        }
+
+        return [
+            'status' => 'success',
+            'data' => $response['choices'][0]['message']['content'] ?? '',
+        ];
+    }
+
+    // If $data is passed, POST is used.
+    private static function apiRequest($method, $data = [], $http_method = 'POST')
+    {
+        $provider = self::getSetting('provider');
+        $api_key = self::getSetting('api_key');
+        $base_url = self::getSetting('base_url') ?: self::getProviderConfig('base_url') ?? '';
+
+        $requires_api_key = self::getProviderConfig()['requires_api_key'] ?? false;
+
+        if (!$api_key && $requires_api_key) {
+            throw new \ApiCallException('API Key is required');
+        }
+
+        $url = $base_url.$method;
+        if ($method == '/models' && self::getProviderConfig('get_models')) {
+            $url = self::getProviderConfig('get_models')($base_url, $api_key);
+        }
+
+        $json_data = json_encode($data);
+        $headers = [
+            'Content-Type: application/json',
+        ];
+        if (!$data) {
+            $http_method = 'GET';
+        }
+        if ($http_method == 'POST') {
+            $headers[] = 'Content-Length: ' . strlen($json_data);
+        }
+
+        if ($api_key && $http_method == 'POST') {
+            $headers[] = 'Authorization: Bearer ' . $api_key;
+        }
+
+        $response = [];
+        $max_attempts = 3;
+        $retry_delay_ms = 500;
+
+        for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
+            $ch = curl_init($url);
+
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => $headers,
+                //CURLOPT_USERAGENT => 'FreeScout-AI-Integration/1.0'
+            ]);
+            if ($http_method == 'POST') {
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => $json_data,
+                ]);
+            }
+            \Helper::setCurlDefaultOptions($ch);
+
+            $response = curl_exec($ch);
+
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            //$total_time = curl_getinfo($ch, CURLINFO_TOTAL_TIME);
+            $error = curl_error($ch);
+            $errno = curl_errno($ch);
+
+            \Helper::curlClose($ch);
+
+            if ($error) {
+                // Curl error.
+                if (in_array($errno, [
+                        CURLE_OPERATION_TIMEDOUT,
+                        CURLE_COULDNT_CONNECT,
+                        CURLE_COULDNT_RESOLVE_HOST,
+                        CURLE_COULDNT_RESOLVE_PROXY,
+                        CURLE_GOT_NOTHING,
+                        CURLE_RECV_ERROR,
+                        CURLE_SEND_ERROR,
+                    ])
+                ) {
+                    // Retry.
+                    usleep($retry_delay_ms * $attempt * 1000);
+                    continue;
+                } else {
+                    throw new ApiCallException('Curl Error: '.$error.' ('.$errno.'). URL: '.$url);
+                }
+            } elseif ($http_code < 200 || $http_code >= 300) {
+                // HTTP error.
+                if (in_array($http_code, [408, 425, 429, 500, 502, 503, 504])) {
+                    // Retry.
+                    usleep($retry_delay_ms * $attempt * 1000);
+                    continue;
+                } elseif ($attempt == $max_attempts) {
+                    throw new ApiCallException('HTTP Error: '.$http_code. '. URL: '.$url.'. Response: '.json_encode($response));
+                }
+            } elseif ($response) {
+                // Success
+                break;
+            }
+        }
+
+        $decoded_response = json_decode($response, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \ApiCallException('Invalid JSON response: ' . json_last_error_msg());
+        }
+
+        return $decoded_response;
+    }
+
+    public static function logApiEexception($e)
+    {
+        if (\Helper::isConsole()) {
+            \Log::error('[AI Integration] '.$e->getMessage());
+        }
     }
 
     /**

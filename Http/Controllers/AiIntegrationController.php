@@ -21,8 +21,15 @@ class AiIntegrationController extends Controller
         switch ($request->action) {
 
             case 'load_models':
-                $response['status'] = 'success';
-                $response['models'] = ['11', '22'];
+                $result = \AiIntegration::apiGetModels();
+
+                if ($result['status'] == 'success') {
+                    $response['status'] = 'success';
+                    $response['models'] = $result['models'];
+                    //$response['models'] = ['11', '22'];
+                } else {
+                    $response['msg'] = $result['msg'] ?? '';
+                }
                 break;
 
             default:

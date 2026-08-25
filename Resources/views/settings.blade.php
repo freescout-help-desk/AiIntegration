@@ -45,7 +45,7 @@
             <input id="aiintegration_base_url" type="text" class="form-control input-sized-lg" name="settings[aiintegration.base_url]" value="{{ old('settings.aiintegration.base_url', $settings['aiintegration.base_url']) }}" placeholder="{{ __('(optional)') }}">
 
             <p class="form-help" id="aii_default_base_url">
-                {{ __('Default') }}: <i id="aii_default_base_url_value">{{ AiIntegration::getProvider()['base_url'] ?? '' }}</i>
+                {{ __('Default') }}: <i id="aii_default_base_url_value">{{ AiIntegration::getProviderConfig()['base_url'] ?? '' }}</i>
             </p>
         </div>
     </div>
@@ -60,7 +60,7 @@
                         $model = old('settings.aiintegration.model', $settings['aiintegration.model']);
                     @endphp
                     @if ($model)
-                        <option value="{{ $model }}">{{ $model }}</option>
+                        <option value="{{ $model }}" selected="selected">{{ $model }}</option>
                     @endif
                 </select>
                 <span class="input-group-btn">

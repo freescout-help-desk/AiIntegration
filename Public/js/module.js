@@ -76,7 +76,12 @@ function aiiInitSettings()
 						button.button('reset');
 					}
 					$('#aiintegration_model').removeAttr('disabled');
-				}, true
+				}, true, 
+				function() {
+					showAjaxError(response);
+					button.button('reset');
+					$('#aiintegration_model').removeAttr('disabled');
+				}
 			);
 		});
 	});
