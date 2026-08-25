@@ -21,12 +21,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'embedding_model' => 'text-embedding-3-small',
         ],
         'gemini' => [
-            'name' => 'Google AI Studio (Gemini)',
+            'name' => 'Gemini (Google AI Studio)',
             'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai',
             'requires_api_key' => true,
             //'models_endpoint' => '/v1beta/models',
             'embedding_model' => 'gemini-embedding-001',
-            'get_models' => static function($base_url, $api_key) {
+            'get_models_base_url_fn' => static function($base_url, $api_key) {
                 return preg_replace("#/openai/?$#", '/models', $base_url).'?key='.$api_key;
             },
         ],
@@ -183,7 +183,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                         'env' => 'AIINTEGRATION_BASE_URL',
                     ],
                     'aiintegration.model' => [
-                        'env' => 'AIINTEGRATION_BASE_URL',
+                        'env' => 'AIINTEGRATION_MODEL',
                     ],
                 ],
             ];
@@ -208,7 +208,20 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
             $settings = $request->settings ?? [];
             
-            //$new_settings['test'] = $custom_statuses;
+            if (!empty($settings['aiintegration.base_url'])) {
+
+                $settings['aiintegration.base_url'] = preg_replace("/https?:\/\//i", '', $settings['aiintegration.base_url']);
+
+                try {
+                    if (!\Helper::sanitizeRemoteUrl('https://'.$settings['aiintegration.base_url'], true)) {
+                        $settings['aiintegration.base_url'] = '';
+                    }
+                } catch (\Exception $e) {
+                    $request->session()->flash('flash_error', $e->getMessage());
+                    $settings['aiintegration.base_url'] = '';
+                }
+            }
+
             // Do not save dummy value.
             if (\Helper::isSafePassword($settings['aiintegration.api_key'])) {
                 // Get prev value.
@@ -262,19 +275,22 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return self::$providers;
     }
 
-    public static function getProviderConfig($param = '')
+    public static function getProviderConfig($param = '', $provider = '')
     {
+        if (!$provider) {
+            $provider = self::getSetting('provider');
+        }
         if ($param) {
-            return self::$providers[self::getSetting('provider')][$param] ?? '';
+            return self::$providers[$provider][$param] ?? '';
         } else {
-            return self::$providers[self::getSetting('provider')] ?? [];
+            return self::$providers[$provider] ?? [];
         }
     }
 
-    public static function apiGetModels()
+    public static function apiGetModels($settings)
     {
         try {
-            $response = self::apiRequest('/models');
+            $response = self::apiRequest('/models', [], $settings);
         } catch (ApiCallException $e) {
             return [
                 'status' => 'error',
@@ -284,6 +300,10 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $models = [];
         if (!empty($response['models'])) {
             $models = array_column($response['models'], 'name');
+            // Remove everything before "/" in model name.
+            $models = array_map(function($model) {
+                return preg_replace("#.*/#", '', $model);
+            }, $models);
         }
 
         return [
@@ -330,21 +350,26 @@ class AiIntegrationServiceProvider extends ServiceProvider
     }
 
     // If $data is passed, POST is used.
-    private static function apiRequest($method, $data = [], $http_method = 'POST')
+    private static function apiRequest($method, $data = [], $settings = [], $http_method = 'POST')
     {
-        $provider = self::getSetting('provider');
-        $api_key = self::getSetting('api_key');
-        $base_url = self::getSetting('base_url') ?: self::getProviderConfig('base_url') ?? '';
+        $provider = $settings['provider'] ?: self::getSetting('provider');
+        $api_key = (!\Helper::isSafePassword($settings['api_key']) ? $settings['api_key'] : '') ?: self::getSetting('api_key');
+        $base_url = $settings['base_url'] ?: self::getSetting('base_url') ?: self::getProviderConfig('base_url', $provider) ?? '';
 
-        $requires_api_key = self::getProviderConfig()['requires_api_key'] ?? false;
+        $requires_api_key = self::getProviderConfig('requires_api_key', $provider) ?? false;
 
         if (!$api_key && $requires_api_key) {
             throw new \ApiCallException('API Key is required');
         }
 
         $url = $base_url.$method;
-        if ($method == '/models' && self::getProviderConfig('get_models')) {
-            $url = self::getProviderConfig('get_models')($base_url, $api_key);
+        $get_models_base_url_fn = null;
+        if ($method == '/models') {
+            // Some providers have their own way of retrieving /models.
+            $get_models_base_url_fn = self::getProviderConfig('get_models_base_url_fn', $provider);
+            if ($get_models_base_url_fn) {
+                $url = $get_models_base_url_fn($base_url, $api_key);
+            }
         }
 
         $json_data = json_encode($data);
@@ -358,7 +383,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $headers[] = 'Content-Length: ' . strlen($json_data);
         }
 
-        if ($api_key && $http_method == 'POST') {
+        if ($api_key && !$get_models_base_url_fn) {
             $headers[] = 'Authorization: Bearer ' . $api_key;
         }
 
@@ -417,7 +442,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                     usleep($retry_delay_ms * $attempt * 1000);
                     continue;
                 } elseif ($attempt == $max_attempts) {
-                    throw new ApiCallException('HTTP Error: '.$http_code. '. URL: '.$url.'. Response: '.json_encode($response));
+                    throw new ApiCallException('HTTP Error: '.$http_code. '. URL: '.$url.'. Response: '.$response);
                 }
             } elseif ($response) {
                 // Success
@@ -425,13 +450,13 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
         }
 
-        $decoded_response = json_decode($response, true);
+        $decoded = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \ApiCallException('Invalid JSON response: ' . json_last_error_msg());
         }
 
-        return $decoded_response;
+        return $decoded;
     }
 
     public static function logApiEexception($e)

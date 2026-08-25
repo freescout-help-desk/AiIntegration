@@ -21,7 +21,11 @@ class AiIntegrationController extends Controller
         switch ($request->action) {
 
             case 'load_models':
-                $result = \AiIntegration::apiGetModels();
+                $result = \AiIntegration::apiGetModels([
+                    'provider' => $request->provider,
+                    'api_key' => $request->api_key,
+                    'base_url' => $request->base_url,
+                ]);
 
                 if ($result['status'] == 'success') {
                     $response['status'] = 'success';

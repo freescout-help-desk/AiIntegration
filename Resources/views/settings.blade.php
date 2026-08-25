@@ -64,7 +64,7 @@
                     @endif
                 </select>
                 <span class="input-group-btn">
-                    <button class="btn btn-default" type="button" id="aii_load_models" data-loading-text="{{ __('Load') }}">{{ __('Load') }}</button>
+                    <button class="btn btn-primary" type="button" id="aii_load_models" data-loading-text="{{ __('Load') }}">{{ __('Load') }}</button>
                 </span>
             </div>
         </div>

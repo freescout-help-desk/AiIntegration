@@ -17,6 +17,10 @@ function aiiInitSettings()
 			}
 		});
 
+		$("#aiintegration_provider,#aiintegration_api_key,#aiintegration_base_url").change(function(e){
+			$("#aii_load_models").click();
+		});
+
 		$("#aiintegration_model").select2({...fs_select2_config, ...{
 			maximumSelectionLength: 1
 			//multiple: false
@@ -30,15 +34,31 @@ function aiiInitSettings()
 			}
 		});;
 
+		// Load models
 		$("#aii_load_models").click(function(e){
+
+			if ($('#aiintegration_model').attr('disabled')) {
+				// Already loading.
+				return;
+			}
+
+	    	var api_key = $('#aiintegration_api_key').val();
+			var selected_model = $('#aiintegration_model').val();
+
+	    	if (!api_key) {
+				aiiCleanModels(selected_model);
+	    		return;
+	    	}
+			
 			var button = $(this);
 	    	button.button('loading');
+
 	    	$('#aiintegration_model').attr('disabled', 'disabled');
 			fsAjax(
 				{
 					action: 'load_models',
 					provider: $('#aiintegration_provider').val(),
-					api_key: $('#aiintegration_api_key').val(),
+					api_key: api_key,
 					base_url: $('#aiintegration_base_url').val()
 				},
 				laroute.route('aiintegration.ajax_admin'), 
@@ -47,7 +67,6 @@ function aiiInitSettings()
 						if (typeof(response.models) != "undefined") {
 							button.button('reset');
 
-							var selected_model = $('#aiintegration_model').val();
 							if (selected_model.length) {
 								selected_model = selected_model[0];
 							} else {
@@ -74,6 +93,7 @@ function aiiInitSettings()
 					} else {
 						showAjaxError(response);
 						button.button('reset');
+						aiiCleanModels(selected_model);
 					}
 					$('#aiintegration_model').removeAttr('disabled');
 				}, true, 
@@ -85,4 +105,15 @@ function aiiInitSettings()
 			);
 		});
 	});
+}
+
+function aiiCleanModels(selected_model)
+{
+	var html = '';
+	if (selected_model) {
+		html += '<option value="'+selected_model+'" selected="selected">'+selected_model+'</option>';
+	}
+	$('#aiintegration_model').html(html)
+		.select2()
+		.trigger('change');
 }
