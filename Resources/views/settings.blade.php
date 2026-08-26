@@ -42,7 +42,7 @@
         <label for="aiintegration_base_url" class="col-sm-2 control-label">{{ __('Base URL') }}</label>
 
         <div class="col-sm-6">
-            <input id="aiintegration_base_url" type="text" class="form-control input-sized-lg" name="settings[aiintegration.base_url]" value="{{ old('settings.aiintegration.base_url', $settings['aiintegration.base_url']) }}" placeholder="{{ __('(optional)') }}">
+            <input id="aiintegration_base_url" type="url" class="form-control input-sized-lg" name="settings[aiintegration.base_url]" value="{{ old('settings.aiintegration.base_url', $settings['aiintegration.base_url']) }}" placeholder="{{ __('(optional)') }}">
 
             <p class="form-help" id="aii_default_base_url">
                 {{ __('Default') }}: <i id="aii_default_base_url_value">{{ AiIntegration::getProviderConfig()['base_url'] ?? '' }}</i>

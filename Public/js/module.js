@@ -17,7 +17,12 @@ function aiiInitSettings()
 			}
 		});
 
-		$("#aiintegration_provider,#aiintegration_api_key,#aiintegration_base_url").change(function(e){
+		// When Provider is changed, just clear the list of models.
+		$("#aiintegration_provider").change(function(e){
+			aiiCleanModels($('#aiintegration_model').val());
+		});
+		// Load models
+		$("#aiintegration_api_key,#aiintegration_base_url").change(function(e){
 			$("#aii_load_models").click();
 		});
 

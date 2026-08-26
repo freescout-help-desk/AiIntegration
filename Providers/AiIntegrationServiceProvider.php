@@ -26,9 +26,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'requires_api_key' => true,
             //'models_endpoint' => '/v1beta/models',
             'embedding_model' => 'gemini-embedding-001',
-            'get_models_base_url_fn' => static function($base_url, $api_key) {
-                return preg_replace("#/openai/?$#", '/models', $base_url).'?key='.$api_key;
-            },
+            // First - dot separated path: data.models
+            'models_names_in_response' => ['models' => 'name'],
         ],
         /*'anthropic' => [
             'name' => 'Anthropic (Claude)',
@@ -40,6 +39,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'name' => 'DeepSeek',
             'base_url' => 'https://api.deepseek.com',
             'requires_api_key' => true,
+            'models_names_in_response' => ['data' => 'id'],
         ],
         'xai' => [
             'name' => 'xAI',
@@ -137,6 +137,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
      */
     public function hooks()
     {
+        // Add functions to providers config.
+        self::extendProvidersConfig();
+
         // Add module's JS file to the application layout.
         \Eventy::addFilter('javascripts', function($javascripts) {
             $javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/laroute.js';
@@ -236,6 +239,21 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }, 20, 3);
     }
 
+    // Add functions to providers config.
+    public static function extendProvidersConfig()
+    {
+        $providers_extended = [
+            'gemini' => [
+                'get_models_base_url_fn' => function($base_url, $api_key) {
+                    return preg_replace("#/openai/?$#", '/models', $base_url).'?key='.$api_key;
+                },
+            ],
+        ];
+        foreach ($providers_extended as $provider_name => $provider_config) {
+            self::$providers[$provider_name] = array_merge(self::$providers[$provider_name], $provider_config);
+        }
+    }
+
     public static function getSettings()
     {
         $settings = [];
@@ -281,7 +299,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $provider = self::getSetting('provider');
         }
         if ($param) {
-            return self::$providers[$provider][$param] ?? '';
+            return self::$providers[$provider][$param] ?? null;
         } else {
             return self::$providers[$provider] ?? [];
         }
@@ -298,8 +316,14 @@ class AiIntegrationServiceProvider extends ServiceProvider
             ];
         }
         $models = [];
-        if (!empty($response['models'])) {
-            $models = array_column($response['models'], 'name');
+
+        if (!empty($response)) {
+            $models_names_in_response = self::getProviderConfig('models_names_in_response') ?: ['models' => 'name'];
+
+            $first_key = array_key_first($models_names_in_response);
+            $list = array_get($response, $first_key);
+            $models = array_column($list, $models_names_in_response[$first_key]);
+
             // Remove everything before "/" in model name.
             $models = array_map(function($model) {
                 return preg_replace("#.*/#", '', $model);
