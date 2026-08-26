@@ -5,7 +5,7 @@
         <label class="col-sm-2 control-label">{{ __('Status') }}</label>
         <div class="col-sm-6">
             <label class="control-label">
-                @if (\AiIntegration::isEnabled())
+                @if (\AiIntegration::isActive())
                     <strong class="text-success"><i class="glyphicon glyphicon-ok"></i> {{ __('Active') }}</strong>
                 @else
                     <strong class="text-warning">{{ __('Inactive') }}</strong>
@@ -55,13 +55,18 @@
 
         <div class="col-sm-6">
             <div class="input-group input-sized-lg">
-                <select type="text" id="aiintegration_model" class="form-control" name="settings[aiintegration.model]" autocomplete="off">
+                <select type="text" id="aiintegration_model" class="form-control" name="settings[aiintegration.model]" autocomplete="off" multiple="">
                     @php
-                        $model = old('settings.aiintegration.model', $settings['aiintegration.model']);
+                        $selected_model = old('settings.aiintegration.model', $settings['aiintegration.model']);
                     @endphp
-                    @if ($model)
-                        <option value="{{ $model }}" selected="selected">{{ $model }}</option>
+                    @if ($selected_model)
+                        <option value="{{ $selected_model }}" selected="selected">{{ $selected_model }}</option>
                     @endif
+                    @foreach ($settings['aiintegration.models'] as $model)
+                        @if ($model != $selected_model)
+                            <option value="{{ $model }}">{{ $model }}</option>
+                        @endif
+                    @endforeach
                 </select>
                 <span class="input-group-btn">
                     <button class="btn btn-primary" type="button" id="aii_load_models" data-loading-text="{{ __('Load') }}">{{ __('Load') }}</button>

@@ -37,7 +37,9 @@ function aiiInitSettings()
 			    // e.preventDefault();
 			    // return false;
 			}
-		});;
+		});
+		// Without this existing models are not shown in the dropdown list
+		$("#aiintegration_model").select2().trigger('change');
 
 		// Load models
 		$("#aii_load_models").click(function(e){

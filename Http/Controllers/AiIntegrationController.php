@@ -21,16 +21,17 @@ class AiIntegrationController extends Controller
         switch ($request->action) {
 
             case 'load_models':
-                $result = \AiIntegration::apiGetModels([
+                $params = [
                     'provider' => $request->provider,
                     'api_key' => $request->api_key,
                     'base_url' => $request->base_url,
-                ]);
+                ];
+                $result = \AiIntegration::apiGetModels($params);
 
-                if ($result['status'] == 'success') {
+                if ($result['status'] == 'success' && !empty($result['models']) && is_array($result['models'])) {
                     $response['status'] = 'success';
                     $response['models'] = $result['models'];
-                    //$response['models'] = ['11', '22'];
+                    \AiIntegration::cacheModels($result['models'], $params);
                 } else {
                     $response['msg'] = $result['msg'] ?? '';
                 }

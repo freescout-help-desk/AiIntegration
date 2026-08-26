@@ -29,12 +29,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
             // First - dot separated path: data.models
             'models_names_in_response' => ['models' => 'name'],
         ],
-        /*'anthropic' => [
+        'anthropic' => [
             'name' => 'Anthropic (Claude)',
             'base_url' => 'https://api.anthropic.com/v1',
             'requires_api_key' => true,
-            'openai_compatible' => false,
-        ],*/
+            //'openai_compatible' => false,
+        ],
         'deepseek' => [
             'name' => 'DeepSeek',
             'base_url' => 'https://api.deepseek.com',
@@ -163,6 +163,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
            
             $settings = self::getSettings();
 
+            $settings['aiintegration.models'] = self::getCachedModels();
+
             return $settings;
         }, 20, 2);
 
@@ -212,11 +214,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $settings = $request->settings ?? [];
             
             if (!empty($settings['aiintegration.base_url'])) {
-
-                $settings['aiintegration.base_url'] = preg_replace("/https?:\/\//i", '', $settings['aiintegration.base_url']);
-
                 try {
-                    if (!\Helper::sanitizeRemoteUrl('https://'.$settings['aiintegration.base_url'], true)) {
+                    if (!\Helper::sanitizeRemoteUrl('https://'.preg_replace("/https?:\/\//i", '', $settings['aiintegration.base_url']), true)) {
                         $settings['aiintegration.base_url'] = '';
                     }
                 } catch (\Exception $e) {
@@ -225,11 +224,22 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 }
             }
 
-            // Do not save dummy value.
-            if (\Helper::isSafePassword($settings['aiintegration.api_key'])) {
-                // Get prev value.
-                $settings['aiintegration.api_key'] = self::getSetting('api_key');
+            $active = false;
+            if (empty($settings['aiintegration.provider'])
+                || (self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']) && empty($settings['aiintegration.api_key']))
+                || empty($settings['aiintegration.model'])
+            ) {
+                $active = false;
+            } else {
+                // Check access by executing API request.
             }
+            if (!$active) {
+                // Disable.
+                \Option::set('aiintegration.active', false);
+            }
+
+            // Do not save dummy value.
+            $settings['aiintegration.api_key'] = self::decodeApiKey($settings['aiintegration.api_key']);
 
             $request->merge([
                 'settings' => $settings
@@ -274,7 +284,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function getSetting($key)
     {
-        $value = config('aiintegration.'.$key);
+        $value = config('aiintegration.'.$key) ?? '';
 
         if (in_array($key, ['api_key'])) {
             return \Helper::decrypt($value);
@@ -283,9 +293,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
     }
 
-    public static function isEnabled()
+    public static function isActive()
     {
-        return false;
+        return \Option::get('aiintegration.active');
     }
 
     public static function getProviders()
@@ -377,7 +387,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
     private static function apiRequest($method, $data = [], $settings = [], $http_method = 'POST')
     {
         $provider = $settings['provider'] ?: self::getSetting('provider');
-        $api_key = (!\Helper::isSafePassword($settings['api_key']) ? $settings['api_key'] : '') ?: self::getSetting('api_key');
+        $api_key = self::decodeApiKey($settings['api_key']);
         $base_url = $settings['base_url'] ?: self::getSetting('base_url') ?: self::getProviderConfig('base_url', $provider) ?? '';
 
         $requires_api_key = self::getProviderConfig('requires_api_key', $provider) ?? false;
@@ -481,6 +491,41 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
 
         return $decoded;
+    }
+
+    public static function cacheModels($models, $params)
+    {
+        $params['api_key'] = self::decodeApiKey($params['api_key']);
+
+        foreach ($params as $i => $param) {
+            $params[$i] = $params[$i] ?? '';
+        }
+
+        return \Cache::put('aiintegration.models_'.md5(json_encode($params)), $models, 60*24);
+    }
+
+    public static function getCachedModels($params = [])
+    {
+        if (empty($params)) {
+            $params = [
+                'provider' => self::getSetting('provider'),
+                'api_key' => self::getSetting('api_key'),
+                'base_url' => self::getSetting('base_url'),
+            ];
+        }
+        foreach ($params as $i => $param) {
+            $params[$i] = $params[$i] ?? '';
+        }
+        return \Cache::get('aiintegration.models_'.md5(json_encode($params)), []);
+    }
+
+    public static function decodeApiKey($api_key)
+    {
+        if (\Helper::isSafePassword($api_key)) {
+            // Get stored value.
+            $api_key = self::getSetting('api_key');
+        }
+        return $api_key;
     }
 
     public static function logApiEexception($e)
