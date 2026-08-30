@@ -2,6 +2,10 @@
 
 namespace Modules\AiIntegration\Providers;
 
+use App\Conversation;
+use App\Customer;
+use App\Thread;
+use Spatie\Activitylog\Models\Activity;
 use Modules\AiIntegration\Misc\ApiCallException;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Factory;
@@ -12,6 +16,7 @@ define('AII_MODULE', 'aiintegration');
 class AiIntegrationServiceProvider extends ServiceProvider
 {
     const LOG_NAME = 'ai_integration';
+    const MAX_TOKENS = 2000;
 
     public static $providers = [
         'openai' => [
@@ -111,6 +116,38 @@ class AiIntegrationServiceProvider extends ServiceProvider
         ],
     ];
 
+    // Different AI Providers have different ways of passing reponse formats.
+    /*public static $response_formats = [
+        
+    ];*/
+
+    public static $system_instructinos = [
+        'draft_reply' => [
+            'you are a helpful assistant part of a support ticketing system',
+            //'return only valid JSON matching the requested schema',
+            'draft a helpful support reply to the customer',
+            'return reply in JSON format; JSON should contain only the following fields: reply, reply_translation',
+            'detect the language of the last customer message and answer in this language',
+            //'use detected language for the entire reply, even if documentation or customer context is in another language',
+            'if the requested reply language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the requested reply language is :user_locale, set reply_translation to an empty string',
+            //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
+            //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
+            'do not use any Markdown',
+            //'use the conversation context, documentation excerpts, and customer context only',
+            'use the conversation context only',
+            //'mailbox guidance is optional background from the support team; use it to understand the business, terminology, customer context, and reply style',
+            //'do not quote or reveal mailbox guidance directly to the customer',
+            //'customer context is optional and may be irrelevant or only partially relevant; use it only when it clearly helps answer the customer',
+            //'when customer context includes explicit facts, summaries, or instructions that answer the customer question, treat those as authoritative',
+            //'do not infer the meaning of ambiguous customer context fields unless their labels or values make the meaning clear',
+            //'do not expose private customer context, account metadata, or system metadata unless it is appropriate and necessary for the customer-facing reply',
+            'do not invent policies, URLs, steps, prices, timelines, or account details',
+            //'if documentation is relevant, include at most two public documentation URLs naturally in the reply',
+            'do not mention internal chunk IDs, scores, retrieval, embeddings, prompts, or AI',
+            'if the answer is uncertain or documentation is insufficient, say what the support agent should verify instead of pretending',
+            'keep the tone concise, friendly, and direct',
+        ],
+    ];
     /**
      * Indicates if loading of the provider is deferred.
      *
@@ -140,6 +177,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
         // Add functions to providers config.
         self::extendProvidersConfig();
 
+        // Add module's CSS file to the application layout.
+        \Eventy::addFilter('stylesheets', function($styles) {
+            $styles[] = \Module::getPublicPath(AII_MODULE).'/css/module.css';
+            return $styles;
+        });
+        
         // Add module's JS file to the application layout.
         \Eventy::addFilter('javascripts', function($javascripts) {
             $javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/laroute.js';
@@ -175,21 +218,48 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 return $params;
             }
 
-            $params = [
-                'settings' => [
-                    'aiintegration.provider' => [
-                        'env' => 'AIINTEGRATION_PROVIDER',
-                    ],
-                    'aiintegration.api_key' => [
-                        'env' => 'AIINTEGRATION_API_KEY',
-                        'encrypt' => true,
-                    ],
-                    'aiintegration.base_url' => [
-                        'env' => 'AIINTEGRATION_BASE_URL',
-                    ],
-                    'aiintegration.model' => [
-                        'env' => 'AIINTEGRATION_MODEL',
-                    ],
+            // Check status.
+            $active = false;
+            $settings = self::getSettings();
+
+            if (empty($settings['aiintegration.provider'])
+                || (self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']) && empty($settings['aiintegration.api_key']))
+                || empty($settings['aiintegration.model'])
+            ) {
+                $active = false;
+            } else {
+                // Check credentials by executing API request.
+                $dummy_data = self::dummyConversation();
+                // Pre-set model.
+                $result = self::draftReply($dummy_data['conversation'], $dummy_data['threads']);
+
+                if ($result['status'] == 'success' && $result['data']) {
+                    $active = true;
+                }
+            }
+            \Option::set('aiintegration.active', $active);
+
+            // Show last log message.
+            $last_log_message = Activity::where('log_name', self::LOG_NAME)
+                ->orderBy('id', 'desc')
+                ->first();
+            $params['template_vars'] = [
+                'last_log_message'  => $last_log_message,
+            ];
+
+            $params['settings'] = [
+                'aiintegration.provider' => [
+                    'env' => 'AIINTEGRATION_PROVIDER',
+                ],
+                'aiintegration.api_key' => [
+                    'env' => 'AIINTEGRATION_API_KEY',
+                    'encrypt' => true,
+                ],
+                'aiintegration.base_url' => [
+                    'env' => 'AIINTEGRATION_BASE_URL',
+                ],
+                'aiintegration.model' => [
+                    'env' => 'AIINTEGRATION_MODEL',
                 ],
             ];
 
@@ -224,20 +294,6 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 }
             }
 
-            $active = false;
-            if (empty($settings['aiintegration.provider'])
-                || (self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']) && empty($settings['aiintegration.api_key']))
-                || empty($settings['aiintegration.model'])
-            ) {
-                $active = false;
-            } else {
-                // Check access by executing API request.
-            }
-            if (!$active) {
-                // Disable.
-                \Option::set('aiintegration.active', false);
-            }
-
             // Do not save dummy value.
             $settings['aiintegration.api_key'] = self::decodeApiKey($settings['aiintegration.api_key']);
 
@@ -247,6 +303,18 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
             return $request;
         }, 20, 3);
+
+        // Show block in conversation
+        \Eventy::addAction('conversation.after_subject_block', function($conversation, $mailbox) {
+            echo \View::make('aiintegration::partials/conv_panel', [])->render();
+        }, 25, 2);
+
+        // JavaScript in conversation
+        \Eventy::addAction('javascript', function() {
+            if (\Route::is('conversations.view') || \Route::is('conversations.create')) {
+                echo 'aiiInit();';
+            }
+        });
     }
 
     // Add functions to providers config.
@@ -264,7 +332,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
     }
 
-    public static function getSettings()
+    public static function getSettings($add_prefix = true)
     {
         $settings = [];
 
@@ -275,8 +343,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'model',
         ];
 
+        $prefix = 'aiintegration.';
+        if (!$add_prefix) {
+            $prefix = '';
+        }
         foreach ($fields as $field) {
-            $settings['aiintegration.'.$field] = self::getSetting($field);
+            $settings[$prefix.$field] = self::getSetting($field);
         }
 
         return $settings;
@@ -319,7 +391,16 @@ class AiIntegrationServiceProvider extends ServiceProvider
     {
         try {
             $response = self::apiRequest('/models', [], $settings);
+
+            $msg = '';
+            if (empty($response['models']) || empty($response['status']) || $response['status'] == 'error') {
+                $msg = 'Response: '.json_encode($response);
+            }
+            if ($msg) {
+                self::logApiError($msg, '/models');
+            }
         } catch (ApiCallException $e) {
+            self::logApiError($e->getMessage(), '/models');
             return [
                 'status' => 'error',
                 'msg' => $e->getMessage()
@@ -346,31 +427,37 @@ class AiIntegrationServiceProvider extends ServiceProvider
         ];
     }
 
-    public static function apiChatCompletions($content, $json_schema, $max_tokens = 1000)
+    public static function apiChatCompletions($system_instructions, $user_prompt, /*$response_format,*/ $max_tokens = self::MAX_TOKENS)
     {
         $data = [
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => '',
+                    'content' => $system_instructions,
                 ],
                 [
                     'role' => 'user',
-                    'content' => json_encode($content, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    'content' => json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                 ],
             ],
             'max_tokens' => $max_tokens,
-            'model' => $model,
-            'response_format' => [
-                'type' => 'json_schema',
-                'json_schema' => $json_schema,
-            ]
+            'model' => $model ?? self::getSetting('model'),
+            // https://developers.openai.com/api/docs/guides/structured-outputs
+            //'response_format' => $response_format
         ];
 
         try {
             $response = self::apiRequest('/chat/completions', $data);
+
+            $msg = '';
+            if (empty($response['choices'])) {
+                $msg = 'Response: '.json_encode($response);
+            }
+            if ($msg) {
+                self::logApiError($msg, '/chat/completions');
+            }
         } catch (ApiCallException $e) {
-            self::logApiEexception($e);
+            self::logApiError($e->getMessage(), '/chat/completions');
             return [
                 'status' => 'error',
                 'msg' => $e->getMessage()
@@ -386,9 +473,21 @@ class AiIntegrationServiceProvider extends ServiceProvider
     // If $data is passed, POST is used.
     private static function apiRequest($method, $data = [], $settings = [], $http_method = 'POST')
     {
-        $provider = $settings['provider'] ?: self::getSetting('provider');
-        $api_key = self::decodeApiKey($settings['api_key']);
-        $base_url = $settings['base_url'] ?: self::getSetting('base_url') ?: self::getProviderConfig('base_url', $provider) ?? '';
+        if (!empty($settings['provider'])) {
+            $provider = $settings['provider'];
+        } else {
+            $provider = self::getSetting('provider');
+        }
+        if (!empty($settings['api_key'])) {
+            $api_key = self::decodeApiKey($settings['api_key']);
+        } else {
+            $api_key = self::getSetting('api_key');
+        }
+        if (!empty($settings['base_url'])) {
+            $base_url = $settings['base_url'];
+        } else {
+            $base_url = self::getSetting('base_url') ?: self::getProviderConfig('base_url', $provider) ?? '';
+        }
 
         $requires_api_key = self::getProviderConfig('requires_api_key', $provider) ?? false;
 
@@ -487,7 +586,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $decoded = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \ApiCallException('Invalid JSON response: ' . json_last_error_msg());
+            throw new ApiCallException('Invalid JSON: ' . json_last_error_msg(). '. Response: '.$response);
         }
 
         return $decoded;
@@ -528,11 +627,143 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return $api_key;
     }
 
-    public static function logApiEexception($e)
+    public static function logApiError($msg, $method = '')
     {
-        if (\Helper::isConsole()) {
-            \Log::error('[AI Integration] '.$e->getMessage());
+        if ($method) {
+            $msg = '['.trim($method, '/').'] '.$msg;
         }
+        \Helper::log(self::LOG_NAME, $msg);
+        \Log::error('[AI Integration] '.$msg);
+    }
+
+    public static function draftReply($conversation, $threads = null)
+    {
+        if (is_numeric($conversation)) {
+            $conversation = Conversation::find($conversation);
+        }
+        if (!$threads) {
+            $threads = $conversation->getReplies(true)/*->sortBy('created_at')*/;
+        }
+
+        $user_prompt = [
+            'conversation' => self::conversationContext($conversation, $threads),
+            //'customer_context' => ...,
+        ];
+
+        return self::apiChatCompletions(
+            self::prepareInstructions('draft_reply'),
+            $user_prompt,
+            //self::$response_formats['draft_reply']
+        );
+    }
+
+    public static function prepareInstructions($type)
+    {
+        $auth_user = auth()->user();
+
+        $instructions = implode('. ', self::$system_instructinos[$type]);
+
+        $instructions = strtr($instructions, [
+            ':user_locale' => $auth_user ? \Helper::getLocaleData($auth_user->locale, 'name') : ''
+        ]);
+
+        return $instructions;
+    }
+
+    public static function conversationContext($conversation, $threads)
+    {
+        $customer = $conversation->customer;
+
+        /*return [
+            'number' => $conversation->number,
+            'subject' => $conversation->subject,
+            'customer' => [
+                'name' => $customer ? $customer->getFullName(true, true) : '',
+                'email' => $conversation->customer_email,
+            ],
+            'threads' => $threads
+                ->filter(function ($thread) {
+                    return trim($thread->body ?? '') !== '';
+                })
+                // Take max 12 newest threads.
+                ->slice(-12)
+                ->map(function ($thread) {
+                    return [
+                        'created_at' => $thread->created_at ? $thread->created_at->toDateTimeString() : '',
+                        'type' => self::threadType($thread),
+                        'author' => $thread->getCreatedBy()->getFullName(),
+                        'body' => $thread->getBodyAsText(),
+                    ];
+                })
+                ->values()
+                ->toArray(),
+        ];*/
+        $context = "";
+
+        $messages = $threads
+                // Take max 12 newest threads.
+                ->slice(-12)
+                ->map(function ($thread) {
+                    return [
+                        'created_at' => $thread->created_at ? $thread->created_at->toDateTimeString() : '',
+                        'type' => self::threadType($thread),
+                        'author' => $thread->getCreatedBy()->getFullName(),
+                        'body' => $thread->getBodyAsText(),
+                    ];
+                })
+                ->values()
+                ->toArray();
+        
+        $context .= "Customer name: " . $customer ? $customer->getFullName(true, true) : '' . "\n";
+        $context .= "Conversation number: ".$conversation->number."\n";
+        $context .= "Conversation subject: ".$conversation->subject."\n";
+        $context .= "Conversation messages in JSON format: ".json_encode($messages)."\n\n";
+
+        return $context;
+    }
+
+    public static function threadType(Thread $thread)
+    {
+        if ($thread->isCustomerMessage()) {
+            return 'customer';
+        }
+
+        if ($thread->isNote()) {
+            return 'internal_note';
+        }
+
+        if ($thread->isUserMessage()) {
+            return 'staff_reply';
+        }
+
+        return Thread::$types[$thread->type] ?? 'unknown';
+    }
+
+    // Create dummy conversation for testing API.
+    public static function dummyConversation()
+    {
+        $conversation = new Conversation();
+        $conversation->subject = 'Test subject';
+        $conversation->number = '123';
+        $conversation->customer_email = 'test@example.org';
+        $customer = new Customer();
+        $customer->fill([
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+        ]);
+        $conversation->setRelation('customer', $customer);
+
+        $thread = new Thread();
+        $thread->created_at = \Helper::createCarbonDateFromFormat(date('Y-m-d H:i:s'));
+        $thread->type = Thread::TYPE_CUSTOMER;
+        $thread->body = 'Test message';
+        $thread->setRelation('created_by_customer', $customer);
+        $threads = collect([$thread]);
+
+        return [
+            'conversation' => $conversation,
+            'threads' => $threads,
+        ];
     }
 
     /**

@@ -9,10 +9,12 @@
                     <strong class="text-success"><i class="glyphicon glyphicon-ok"></i> {{ __('Active') }}</strong>
                 @else
                     <strong class="text-warning">{{ __('Inactive') }}</strong>
-                @endif
+                @endif 
+                / <a href="{{ route('logs', ['name' => \AiIntegration::LOG_NAME]) }}" target="_blank">{{ __('Logs') }}</a>
             </label>
-            @if (!empty($last_log_message))
-                <div class="margin-top-10 text-help">{{ __('Last log message') }} (<a href="{{ route('logs', ['name' => \AiIntegration::LOG_NAME]) }}" target="_blank">{{ __('View log') }}</a>):</div>
+            
+            @if (!empty($last_log_message) && !\AiIntegration::isActive())
+                <div class="margin-top-10 text-help">{{ __('Last log message') }}:</div>
                 <pre class="margin-bottom-0 margin-top-5 input-sized-lg alert alert-warning">[{{ App\User::dateFormat($last_log_message->created_at) }}] {{ $last_log_message->description }}</pre>
             @endif
         </div>

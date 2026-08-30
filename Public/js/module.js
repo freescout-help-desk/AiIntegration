@@ -1,6 +1,30 @@
 /**
  * Module's JavaScript.
  */
+
+function aiiInit()
+{
+	$(document).ready(function() {
+		$("#aiintegration_provider").change(function(e){
+			var value = $(this).val();
+
+			var base_url = $(this).children('[value='+value+']').attr('data-aii-base-url');
+
+			if (base_url) {
+				$('#aii_default_base_url_value').text(base_url);
+				$('#aii_default_base_url').show();
+			} else {
+				$('#aii_default_base_url').hide();
+			}
+		});
+
+		// Draft reply
+		$("#aii_draft_reply").click(function(e){
+	    	aiiDraftReply($(this))
+	    });
+	});
+}
+
 function aiiInitSettings()
 {
 	$(document).ready(function() {
@@ -71,8 +95,8 @@ function aiiInitSettings()
 				laroute.route('aiintegration.ajax_admin'), 
 				function(response) {
 					if (isAjaxSuccess(response)) {
+						button.button('reset');
 						if (typeof(response.models) != "undefined") {
-							button.button('reset');
 
 							if (selected_model.length) {
 								selected_model = selected_model[0];
@@ -117,10 +141,37 @@ function aiiInitSettings()
 function aiiCleanModels(selected_model)
 {
 	var html = '';
-	if (selected_model) {
-		html += '<option value="'+selected_model+'" selected="selected">'+selected_model+'</option>';
+
+	if (typeof(selected_model) != "undefined") {
+		selected_model += '';
+		if (selected_model) {
+			html += '<option value="'+selected_model+'" selected="selected">'+selected_model+'</option>';
+		}
 	}
 	$('#aiintegration_model').html(html)
 		.select2()
 		.trigger('change');
+}
+
+function aiiDraftReply(button)
+{
+	button.button('loading');
+	// Generate reply
+	fsAjax(
+		{
+			action: 'generate_reply',
+		},
+		laroute.route('aiintegration.ajax'), 
+		function(response) {
+			if (isAjaxSuccess(response)) {
+				button.button('reset');
+				if (typeof(response.models) != "undefined") {
+					// Show drafted reply
+				}
+			} else {
+				showAjaxError(response);
+				button.button('reset');
+			}
+		}, true
+	);
 }

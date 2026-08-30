@@ -1,6 +1,10 @@
 (function () {
     var module_routes = [
     {
+        "uri": "ai-integration\/ajax",
+        "name": "aiintegration.ajax"
+    },
+    {
         "uri": "ai-integration\/ajax-admin",
         "name": "aiintegration.ajax_admin"
     }

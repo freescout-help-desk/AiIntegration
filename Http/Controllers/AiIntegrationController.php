@@ -11,6 +11,33 @@ class AiIntegrationController extends Controller
     /**
      * Ajax controller.
      */
+    public function ajax(Request $request)
+    {
+        $response = [
+            'status' => 'error',
+            'msg'    => '', // this is error message
+        ];
+
+        switch ($request->action) {
+
+            case '123':
+                break;
+
+            default:
+                $response['msg'] = 'Unknown action';
+                break;
+        }
+
+        if ($response['status'] == 'error' && empty($response['msg'])) {
+            $response['msg'] = 'Unknown error occured';
+        }
+
+        return \Response::json($response);
+    }
+
+    /**
+     * Ajax controller.
+     */
     public function ajaxAdmin(Request $request)
     {
         $response = [
@@ -33,7 +60,7 @@ class AiIntegrationController extends Controller
                     $response['models'] = $result['models'];
                     \AiIntegration::cacheModels($result['models'], $params);
                 } else {
-                    $response['msg'] = $result['msg'] ?? '';
+                    $response['msg'] = '[Load Models] '.$result['msg'];
                 }
                 break;
 
@@ -47,5 +74,20 @@ class AiIntegrationController extends Controller
         }
 
         return \Response::json($response);
+    }
+
+    /**
+     * Ajax controller.
+     */
+    public function ajaxHtml(Request $request)
+    {
+        switch ($request->action) {
+            case 'generate_reply':
+                return view('aiintegration::ajax_html/generate_reply', [
+                    
+                ]);
+        }
+
+        abort(404);
     }
 }
