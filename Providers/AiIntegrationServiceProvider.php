@@ -152,6 +152,20 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'keep the tone concise, friendly, and direct',
             'use formal respectful language',
         ],
+        'summarize' => [
+            'prepare a summary of the conversation',
+            'newline-separated bullet list, each bullet starts with "- "',
+            'summary bullets must be chronological from oldest notable update to newest notable update',
+            'each bullet should describe one notable update in plain language',
+            'do not use any Markdown',
+            'use the conversation context only',
+            'use the participant names; do not use generic roles like customer, staff, user, or agent',
+            'skip greetings, signatures, quoted text, auto-replies, boilerplate, duplicate acknowledgements, and other non-noteworthy messages',
+            'prefer 3-8 bullets; use fewer when the conversation is short',
+            'do not use lead-ins like "Subject shows", "The latest thread", "The email", etc.',
+            'do not describe the layout of the conversation, just the content',
+            'state facts only, do not draw conclusions',
+        ],
     ];
     /**
      * Indicates if loading of the provider is deferred.
@@ -669,9 +683,29 @@ class AiIntegrationServiceProvider extends ServiceProvider
             //self::$response_formats['draft_reply']
         );
 
-        if (!empty($result['data']) && !empty($result['data']['reply'])) {
-            $result['data']['reply'] = self::prepareAiReply($result['data']['reply']);
-        }
+        // if (!empty($result['data']) && !empty($result['data']['reply'])) {
+        //     $result['data']['reply'] = self::prepareAiReply($result['data']['reply']);
+        // }
+
+        return $result;
+    }
+
+    public static function summarize($conversation)
+    {
+        $threads = $conversation->getReplies(true);
+
+        $instructions = self::prepareInstructions('summarize', [
+            'use the following language: '.self::userLanguageName()
+        ]);
+
+        $user_prompt = [
+            'conversation' => self::conversationContext($conversation, $threads),
+        ];
+
+        $result = self::apiChatCompletions(
+            $instructions,
+            $user_prompt,
+        );
 
         return $result;
     }
@@ -688,16 +722,16 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return json_decode($json, true);
     }
 
-    public static function prepareAiReply($reply)
+    /*public static function prepareAiReply($reply)
     {
         $reply = trim($reply);
 
         return $reply;
-    }
+    }*/
 
-    public static function prepareInstructions($type)
+    public static function prepareInstructions($type, $extra = [])
     {
-        $instructions = implode('. ', self::$system_instructinos[$type]);
+        $instructions = implode('. ', array_merge(self::$system_instructinos[$type], $extra));
         $instructions = strtr($instructions, [
             ':user_locale' => self::userLanguageName()
         ]);
@@ -708,7 +742,19 @@ class AiIntegrationServiceProvider extends ServiceProvider
     public static function userLanguageName()
     {
         $auth_user = auth()->user();
-        return $auth_user ? \Helper::getLocaleData($auth_user->locale, 'name') : 'English';
+        $locale = '';
+
+        if ($auth_user) {
+            $locale = $auth_user->locale;
+        }
+        if (!$locale) {
+            $locale = \Helper::getAppLocale();
+        }
+        if (!$locale) {
+            $locale = 'en';
+        }
+
+        return \Helper::getLocaleData($locale, 'name');
     }
 
     public static function conversationContext($conversation, $threads)

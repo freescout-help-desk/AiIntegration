@@ -4,12 +4,12 @@
 
 function aiiInit()
 {
-	/*$(document).ready(function() {
-		// Draft reply
-		$("#aii_draft_reply").click(function(e){
-	    	aiiDraftReply($(this))
+	$(document).ready(function() {
+		// Summarize
+		$("#aii_summarize").click(function(e){
+	    	aiiSummarize($(this))
 	    });
-	});*/
+	});
 }
 
 function aiiInitSettings()
@@ -140,29 +140,6 @@ function aiiCleanModels(selected_model)
 		.trigger('change');
 }
 
-/*function aiiDraftReply(button)
-{
-	button.button('loading');
-	// Generate reply
-	fsAjax(
-		{
-			action: 'generate_reply',
-		},
-		laroute.route('aiintegration.ajax'), 
-		function(response) {
-			if (isAjaxSuccess(response)) {
-				button.button('reset');
-				if (typeof(response.models) != "undefined") {
-					// Show drafted reply
-				}
-			} else {
-				showAjaxError(response);
-				button.button('reset');
-			}
-		}, true
-	);
-}*/
-
 function aiiDraftReplyModal(modal)
 {
 	// Show reply text
@@ -198,4 +175,37 @@ function aiiDraftReplyModal(modal)
 function aiiNewLineToBr(str)
 {
 	return str.replace(/(?:\r\n|\r|\n)/g, '<br>');
+}
+
+function aiiSummarize(button)
+{
+	if (!$('#aii_summary').hasClass('hidden')) {
+		$('#aii_summary').addClass('hidden');
+		return;
+	}
+
+	if ($('#aii_summary').text()) {
+		$('#aii_summary').removeClass('hidden');
+		return;
+	}
+
+	button.button('loading');
+	
+	fsAjax(
+		{
+			action: 'summarize',
+			conversation_id: getGlobalAttr('conversation_id')
+		},
+		laroute.route('aiintegration.ajax'), 
+		function(response) {
+			button.button('reset');
+
+			if (isAjaxSuccess(response) && typeof(response.summary) != "undefined") {
+				// Show Summary
+				$('#aii_summary').text(response.summary).removeClass('hidden');
+			} else {
+				showAjaxError(response);
+			}
+		}, true
+	);
 }

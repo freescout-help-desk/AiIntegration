@@ -19,9 +19,30 @@ class AiIntegrationController extends Controller
             'msg'    => '', // this is error message
         ];
 
+        $auth_user = auth()->user();
+
         switch ($request->action) {
 
-            case '123':
+            case 'summarize':
+                $conversation = Conversation::find($request->conversation_id);
+
+                if (!$conversation || !$auth_user->can('view', $conversation)) {
+                    $response['msg'] = __('Not enough permissions');
+                }
+
+                if (!$response['msg']) {
+                    $result = \AiIntegration::summarize($conversation);
+
+                    $error = '';
+
+                    if ($result['status'] == 'success' && !empty($result['data'])) {
+                        $response['status'] = 'success';
+                        $response['summary'] = $result['data'];
+                    } else {
+                        $response['msg'] = __('Error occurred. Please try again later.');
+                        \AiIntegration::logApiError($error.' Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
+                    }
+                }
                 break;
 
             default:
@@ -127,7 +148,7 @@ class AiIntegrationController extends Controller
         $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
-            
+
         return $response;
     }
 }
