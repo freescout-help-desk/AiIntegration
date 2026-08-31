@@ -4,25 +4,12 @@
 
 function aiiInit()
 {
-	$(document).ready(function() {
-		$("#aiintegration_provider").change(function(e){
-			var value = $(this).val();
-
-			var base_url = $(this).children('[value='+value+']').attr('data-aii-base-url');
-
-			if (base_url) {
-				$('#aii_default_base_url_value').text(base_url);
-				$('#aii_default_base_url').show();
-			} else {
-				$('#aii_default_base_url').hide();
-			}
-		});
-
+	/*$(document).ready(function() {
 		// Draft reply
 		$("#aii_draft_reply").click(function(e){
 	    	aiiDraftReply($(this))
 	    });
-	});
+	});*/
 }
 
 function aiiInitSettings()
@@ -153,7 +140,7 @@ function aiiCleanModels(selected_model)
 		.trigger('change');
 }
 
-function aiiDraftReply(button)
+/*function aiiDraftReply(button)
 {
 	button.button('loading');
 	// Generate reply
@@ -174,4 +161,41 @@ function aiiDraftReply(button)
 			}
 		}, true
 	);
+}*/
+
+function aiiDraftReplyModal(modal)
+{
+	// Show reply text
+	var i = 0;
+	var text = $('.modal-body:visible .aii-generated-reply-hidden:first').text();
+	var cur_text = '';
+	var container = $('.aii-generated-reply:visible:first');
+	function typeWriter() {
+		if (i < text.length) {
+			cur_text += text.charAt(i);
+			container.text(cur_text);
+			i++;
+			setTimeout(typeWriter, 10);
+		}
+	}
+	typeWriter();
+
+	// Apply reply
+	modal.children().find('.aii-reply-apply:first').click(function(e) {
+		var body = $('.aii-generated-reply:visible').text();
+		
+		if ($(".conv-reply-block").hasClass('conv-note-block')) {
+			hideReplyEditor();
+		}
+		showReplyForm();
+		setReplyBody(aiiNewLineToBr(body));
+
+		modal.modal('hide')
+		e.preventDefault();
+	});
+}
+
+function aiiNewLineToBr(str)
+{
+	return str.replace(/(?:\r\n|\r|\n)/g, '<br>');
 }

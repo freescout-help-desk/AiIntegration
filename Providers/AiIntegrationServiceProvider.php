@@ -18,6 +18,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
     const LOG_NAME = 'ai_integration';
     const MAX_TOKENS = 2000;
 
+    const METHOD_MODELS = '/models';
+    const METHOD_CHAT = '/chat/completions';
+
     public static $providers = [
         'openai' => [
             'name' => 'OpenAI',
@@ -132,6 +135,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'if the requested reply language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the requested reply language is :user_locale, set reply_translation to an empty string',
             //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
             //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
+            'use short paragraphs separated by blank lines, bullet or numbered lists when useful',
             'do not use any Markdown',
             //'use the conversation context, documentation excerpts, and customer context only',
             'use the conversation context only',
@@ -146,6 +150,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'do not mention internal chunk IDs, scores, retrieval, embeddings, prompts, or AI',
             'if the answer is uncertain or documentation is insufficient, say what the support agent should verify instead of pretending',
             'keep the tone concise, friendly, and direct',
+            'use formal respectful language',
         ],
     ];
     /**
@@ -306,7 +311,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
         // Show block in conversation
         \Eventy::addAction('conversation.after_subject_block', function($conversation, $mailbox) {
-            echo \View::make('aiintegration::partials/conv_panel', [])->render();
+            echo \View::make('aiintegration::partials/conv_panel', [
+                'conversation_id' => $conversation->id,
+            ])->render();
         }, 25, 2);
 
         // JavaScript in conversation
@@ -323,7 +330,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $providers_extended = [
             'gemini' => [
                 'get_models_base_url_fn' => function($base_url, $api_key) {
-                    return preg_replace("#/openai/?$#", '/models', $base_url).'?key='.$api_key;
+                    return preg_replace("#/openai/?$#", self::METHOD_MODELS, $base_url).'?key='.$api_key;
                 },
             ],
         ];
@@ -390,17 +397,17 @@ class AiIntegrationServiceProvider extends ServiceProvider
     public static function apiGetModels($settings)
     {
         try {
-            $response = self::apiRequest('/models', [], $settings);
+            $response = self::apiRequest(self::METHOD_MODELS, [], $settings);
 
             $msg = '';
             if (empty($response['models']) || empty($response['status']) || $response['status'] == 'error') {
                 $msg = 'Response: '.json_encode($response);
             }
             if ($msg) {
-                self::logApiError($msg, '/models');
+                self::logApiError($msg, self::METHOD_MODELS);
             }
         } catch (ApiCallException $e) {
-            self::logApiError($e->getMessage(), '/models');
+            self::logApiError($e->getMessage(), self::METHOD_MODELS);
             return [
                 'status' => 'error',
                 'msg' => $e->getMessage()
@@ -447,26 +454,32 @@ class AiIntegrationServiceProvider extends ServiceProvider
         ];
 
         try {
-            $response = self::apiRequest('/chat/completions', $data);
+            $response = self::apiRequest(self::METHOD_CHAT, $data);
 
             $msg = '';
-            if (empty($response['choices'])) {
+            if (empty($response['choices'][0]['message']['content'])) {
                 $msg = 'Response: '.json_encode($response);
             }
             if ($msg) {
-                self::logApiError($msg, '/chat/completions');
+                self::logApiError($msg, self::METHOD_CHAT);
             }
         } catch (ApiCallException $e) {
-            self::logApiError($e->getMessage(), '/chat/completions');
+            self::logApiError($e->getMessage(), self::METHOD_CHAT);
             return [
                 'status' => 'error',
                 'msg' => $e->getMessage()
             ];
         }
 
+        $data = $response['choices'][0]['message']['content'] ?? '';
+        $data_decoded = null;
+        if ($data) {
+            $data_decoded = self::jsonDecode($data, true);
+        }
+
         return [
             'status' => 'success',
-            'data' => $response['choices'][0]['message']['content'] ?? '',
+            'data' => $data_decoded ?: $data,
         ];
     }
 
@@ -650,24 +663,52 @@ class AiIntegrationServiceProvider extends ServiceProvider
             //'customer_context' => ...,
         ];
 
-        return self::apiChatCompletions(
+        $result = self::apiChatCompletions(
             self::prepareInstructions('draft_reply'),
             $user_prompt,
             //self::$response_formats['draft_reply']
         );
+
+        if (!empty($result['data']) && !empty($result['data']['reply'])) {
+            $result['data']['reply'] = self::prepareAiReply($result['data']['reply']);
+        }
+
+        return $result;
+    }
+
+    // Removes ```json\n{...}\n``` before decoding.
+    public static function jsonDecode($json)
+    {
+        $json = trim($json);
+
+        $json = preg_replace("#^```json#", '', $json);
+        $json = preg_replace("#```$#", '', $json);
+        $json = trim($json);
+
+        return json_decode($json, true);
+    }
+
+    public static function prepareAiReply($reply)
+    {
+        $reply = trim($reply);
+
+        return $reply;
     }
 
     public static function prepareInstructions($type)
     {
-        $auth_user = auth()->user();
-
         $instructions = implode('. ', self::$system_instructinos[$type]);
-
         $instructions = strtr($instructions, [
-            ':user_locale' => $auth_user ? \Helper::getLocaleData($auth_user->locale, 'name') : ''
+            ':user_locale' => self::userLanguageName()
         ]);
 
         return $instructions;
+    }
+
+    public static function userLanguageName()
+    {
+        $auth_user = auth()->user();
+        return $auth_user ? \Helper::getLocaleData($auth_user->locale, 'name') : 'English';
     }
 
     public static function conversationContext($conversation, $threads)

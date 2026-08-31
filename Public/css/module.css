@@ -6,5 +6,11 @@
 }
 
 .aii-modal-reply .modal-body {
-	min-height: 200px;
+	min-height: 150px;
+}
+
+.aii-pre {
+	border: 0;
+	border-radius: 10px;
+	white-space: pre-wrap;
 }

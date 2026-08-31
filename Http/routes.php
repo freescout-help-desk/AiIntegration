@@ -4,7 +4,7 @@
 Route::group(['middleware' => ['web', 'auth', 'roles'], 'roles' => ['user', 'admin'], 'prefix' => \Helper::getSubdirectory(), 'namespace' => 'Modules\AiIntegration\Http\Controllers'], function()
 {
     Route::post('/ai-integration/ajax', ['uses' => 'AiIntegrationController@ajax', 'laroute' => true])->name('aiintegration.ajax');
-    Route::get('/ai-integration/ajax_html/{action}', ['uses' => 'AiIntegrationController@ajaxHtml'])->name('aiintegration.ajax_html');
+    Route::get('/ai-integration/ajax_html/{action}/{param?}', ['uses' => 'AiIntegrationController@ajaxHtml'])->name('aiintegration.ajax_html');
 });
 
 # Admin

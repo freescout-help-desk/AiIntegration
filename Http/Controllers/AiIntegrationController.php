@@ -2,6 +2,7 @@
 
 namespace Modules\AiIntegration\Http\Controllers;
 
+use App\Conversation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
@@ -81,13 +82,52 @@ class AiIntegrationController extends Controller
      */
     public function ajaxHtml(Request $request)
     {
+        $auth_user = auth()->user();
+
         switch ($request->action) {
             case 'generate_reply':
-                return view('aiintegration::ajax_html/generate_reply', [
-                    
+                $conversation = Conversation::find($request->param);
+
+                if (!$conversation || !$auth_user->can('view', $conversation)) {
+                    \Helper::denyAccess();
+                }
+
+                $result = \AiIntegration::draftReply($conversation);
+
+                $reply = '';
+                $translation = '';
+                $error = '';
+
+                if ($result['status'] == 'success' 
+                    && !empty($result['data'])
+                    && !empty($result['data']['reply'])
+                ) {
+                    $reply = $result['data']['reply'];
+                    $translation = $result['data']['reply_translation'] ?? '';
+                } else {
+                    $error = __('Error occurred. Please try again later.');
+                    \AiIntegration::logApiError($error.' Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
+                }
+
+                $response = response()->view('aiintegration::ajax_html/generate_reply', [
+                    'reply' => $reply,
+                    'translation' => $translation,
+                    'error' => $error,
                 ]);
+
+                return $this->disableCache($response);
         }
 
         abort(404);
+    }
+
+    // Disable browser caching.
+    public function disableCache($response)
+    {
+        $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+            
+        return $response;
     }
 }
