@@ -166,6 +166,21 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'do not describe the layout of the conversation, just the content',
             'state facts only, do not draw conclusions',
         ],
+        'check_spelling' => [
+            'correct spelling and grammar mistakes in the text, do not change its meaning, preserve HTML and send back only the corrected text',
+        ],
+        'make_longer' => [
+            'expand and elaborate on the text, make it longer and more detailed, preserve HTML and send back only the corrected text',
+        ],
+        'make_shorter' => [
+            'rewrite the text making it shorter and more concise, keep the meaning, preserve HTML and send back only the corrected text',
+        ],
+        'make_friendlier' => [
+            'rewrite the text to sound more friendly and casual, without exclaimation marks, keep the meaning, preserve HTML and send back only the corrected text',
+        ],
+        'make_professional' => [
+            'rewrite the text to sound more professional and formal, keep the meaning, preserve HTML and send back only the corrected text',
+        ],
     ];
     /**
      * Indicates if loading of the provider is deferred.
@@ -207,6 +222,13 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/laroute.js';
             $javascripts[] = \Module::getPublicPath(AII_MODULE).'/js/module.js';
             return $javascripts;
+        });
+
+        \Eventy::addAction('js.lang.messages', function() {
+            ?>
+                "aii_assist": "<?php echo __j("AI Assist") ?>",
+                "aii_use": "<?php echo __j("Use") ?>",
+            <?php
         });
 
         // Add item to settings sections.
@@ -334,6 +356,20 @@ class AiIntegrationServiceProvider extends ServiceProvider
         \Eventy::addAction('javascript', function() {
             if (\Route::is('conversations.view') || \Route::is('conversations.create')) {
                 echo 'aiiInit();';
+            }
+        });
+
+        \Eventy::addAction('layout.body_bottom', function() {
+            if (\Route::is('conversations.view') || \Route::is('conversations.create')) {
+                ?>
+                    <ul id="aii_editor_items" class="hidden">
+                        <li><a href="#" data-action="check_spelling"><?php echo __h('Check spelling and grammar') ?></a></li>
+                        <li><a href="#" data-action="make_longer"><?php echo __h('Make it longer') ?></a></li>
+                        <li><a href="#" data-action="make_shorter"><?php echo __h('Make it shorter') ?></a></li>
+                        <li><a href="#" data-action="make_friendlier"><?php echo __h('Make it friendlier') ?></a></li>
+                        <li><a href="#" data-action="make_professional"><?php echo __h('Make it more professional') ?></a></li>
+                    </ul>
+                <?php
             }
         });
     }
@@ -705,6 +741,18 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $result = self::apiChatCompletions(
             $instructions,
             $user_prompt,
+        );
+
+        return $result;
+    }
+
+    public static function assist($action, $body)
+    {
+        $instructions = self::prepareInstructions($action);
+
+        $result = self::apiChatCompletions(
+            $instructions,
+            $body,
         );
 
         return $result;

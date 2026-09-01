@@ -2,12 +2,47 @@
  * Module's JavaScript.
  */
 
+// AI button in reply editor.
+var AiEditorButton = function (context) {
+	var ui = $.summernote.ui;
+
+	// create button
+	var button = ui.buttonGroup([
+		// We have to create button inside button group to have tooltip separate for button
+	    ui.button({
+	        className: 'dropdown-toggle',
+	        contents: 'AI <span class="note-icon-caret"></span>',
+	        tooltip: Lang.get("messages.aii_assist"),
+	        container: 'body',
+        	data: {
+                toggle: 'dropdown'
+            }
+	    }),
+	    ui.dropdown({
+            className: 'aii-editor-actions',
+            items: $('#aii_editor_items').html()
+        })
+	]);
+
+	var obj = button.render();
+
+	return obj;
+}
+
+fs_conv_editor_buttons['ai'] = AiEditorButton;
+fs_conv_editor_toolbar[0][1].push('ai');
+
 function aiiInit()
 {
 	$(document).ready(function() {
 		// Summarize
 		$("#aii_summarize").click(function(e){
 	    	aiiSummarize($(this))
+	    });
+
+	    $('.aii-editor-actions li').click(function(e){
+	    	aiiAssist($(this));
+	    	e.preventDefault();
 	    });
 	});
 }
@@ -208,4 +243,60 @@ function aiiSummarize(button)
 			}
 		}, true
 	);
+}
+
+function aiiAssist(button)
+{
+	var sub_action = button.attr('data-action');
+	if (!sub_action) {
+		button = button.children(":first");
+		sub_action = button.attr('data-action');
+	}
+
+	// Show modal
+	var modal_html = '<div>'+
+		'<div class="text-center modal-loader"><img src="'+Vars.public_url+'/modules/aiintegration/img/loader.svg'+'" /></div>'+
+		'<div class="aii-assist-result aii-result hidden"></div>'+
+		'<div class="form-group margin-top aii-assist-buttons hidden">'+
+			'<button class="btn btn-warning aii-assist-ok"><i class="glyphicon glyphicon-ok"></i> '+Lang.get("messages.aii_use")+'</button>'+
+			'<button class="btn btn-link" data-dismiss="modal">'+Lang.get("messages.cancel")+'</button>'+
+		'</div>'+
+		'</div>';
+
+		showModalDialog(modal_html, {
+			size: 'md',
+			width_auto: false,
+			no_header: false,
+			title: button.text(),
+			class: 'aii-modal-reply',
+			on_show: function(modal) {
+				// Prepare text
+				fsAjax(
+					{
+						action: 'assist',
+						sub_action: sub_action,
+						body: getReplyBody()
+					},
+					laroute.route('aiintegration.ajax'), 
+					function(response) {
+						button.button('reset');
+
+						if (isAjaxSuccess(response) && typeof(response.body) != "undefined") {
+							modal.children().find('.modal-loader:first').hide();
+							modal.children().find('.aii-assist-result').html(response.body).removeClass('hidden');
+							modal.children().find('.aii-assist-buttons:first').removeClass('hidden');
+						} else {
+							showAjaxError(response);
+						}
+					}, true
+				);
+
+				// Ok
+				modal.children().find('.aii-assist-ok:first').click(function(e) {
+					modal.modal('hide');
+					setReplyBody(modal.children().find('.aii-assist-result').html());
+					e.preventDefault();
+				});
+			}
+		});
 }

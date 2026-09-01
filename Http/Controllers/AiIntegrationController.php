@@ -33,15 +33,25 @@ class AiIntegrationController extends Controller
                 if (!$response['msg']) {
                     $result = \AiIntegration::summarize($conversation);
 
-                    $error = '';
-
                     if ($result['status'] == 'success' && !empty($result['data'])) {
                         $response['status'] = 'success';
                         $response['summary'] = $result['data'];
                     } else {
                         $response['msg'] = __('Error occurred. Please try again later.');
-                        \AiIntegration::logApiError($error.' Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
+                        \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
                     }
+                }
+                break;
+
+            case 'assist':
+                $result = \AiIntegration::assist($request->sub_action, $request->body);
+
+                if ($result['status'] == 'success' && !empty($result['data'])) {
+                    $response['status'] = 'success';
+                    $response['body'] = \Helper::purifyHtml($result['data']);
+                } else {
+                    $response['msg'] = __('Error occurred. Please try again later.');
+                    \AiIntegration::logApiError(' Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
                 }
                 break;
 
@@ -127,7 +137,7 @@ class AiIntegrationController extends Controller
                     $translation = $result['data']['reply_translation'] ?? '';
                 } else {
                     $error = __('Error occurred. Please try again later.');
-                    \AiIntegration::logApiError($error.' Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
+                    \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
                 }
 
                 $response = response()->view('aiintegration::ajax_html/generate_reply', [
