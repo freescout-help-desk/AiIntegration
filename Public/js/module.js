@@ -237,7 +237,7 @@ function aiiSummarize(button)
 
 			if (isAjaxSuccess(response) && typeof(response.summary) != "undefined") {
 				// Show Summary
-				$('#aii_summary').text(response.summary).removeClass('hidden');
+				$('#aii_summary').html(aiiNewLineToBr(response.summary)).removeClass('hidden');
 			} else {
 				showAjaxError(response);
 			}

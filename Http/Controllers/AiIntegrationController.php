@@ -35,7 +35,7 @@ class AiIntegrationController extends Controller
 
                     if ($result['status'] == 'success' && !empty($result['data'])) {
                         $response['status'] = 'success';
-                        $response['summary'] = $result['data'];
+                        $response['summary'] = htmlspecialchars($result['data']);
                     } else {
                         $response['msg'] = __('Error occurred. Please try again later.');
                         \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);

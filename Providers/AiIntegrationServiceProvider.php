@@ -37,12 +37,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
             // First - dot separated path: data.models
             'models_names_in_response' => ['models' => 'name'],
         ],
-        'anthropic' => [
+        /*'anthropic' => [
             'name' => 'Anthropic (Claude)',
             'base_url' => 'https://api.anthropic.com/v1',
             'requires_api_key' => true,
             //'openai_compatible' => false,
-        ],
+        ],*/
         'deepseek' => [
             'name' => 'DeepSeek',
             'base_url' => 'https://api.deepseek.com',
@@ -130,9 +130,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
             //'return only valid JSON matching the requested schema',
             'draft a helpful support reply to the customer',
             'return reply in JSON format; JSON should contain only the following fields: reply, reply_translation',
-            'detect the language of the last customer message and answer in this language',
+            'detect customer language and answer in this language',
             //'use detected language for the entire reply, even if documentation or customer context is in another language',
-            'if the requested reply language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the requested reply language is :user_locale, set reply_translation to an empty string',
+            'if the customer language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the customer language is :user_locale, set reply_translation to an empty string',
             //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
             //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
             'use short paragraphs separated by blank lines, bullet or numbered lists when useful',
