@@ -27,5 +27,5 @@ Google's Gemini offers [API keys](https://aistudio.google.com/api-keys) with rel
 
 ## Contributing
 
-- Fork [master](https://github.com/freescout-help-desk/ai-integration/tree/master) branch.
+- Fork [master](https://github.com/freescout-help-desk/AiIntegration/tree/master) branch.
 - Submit Pull Requests into `master` branch.
