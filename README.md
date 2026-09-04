@@ -1,6 +1,6 @@
 # FreeScout AI Integration Module (Official)
 
-Installation instructions are available [here](https://github.com/freescout-help-desk/freescout/wiki/FreeScout-Modules/_edit#3-installing-custom-modules).
+Installation instructions are available [here](https://github.com/freescout-help-desk/freescout/wiki/FreeScout-Modules#3-installing-custom-modules).
 
 Full documentation: https://freescout.net/module/ai-integration/
 
