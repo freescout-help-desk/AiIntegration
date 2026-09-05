@@ -2,7 +2,7 @@
     "name": "AI Integration",
     "alias": "aiintegration",
     "description": "Turn FreeScout into AI-powered support wizard and resolve customer requests faster!",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "detailsUrl": "https://freescout.net/module/ai-integration/",
     "author": "FreeScout",
     "authorUrl": "https://www.freescout.net",
