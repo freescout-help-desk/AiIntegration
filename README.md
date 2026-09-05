@@ -4,6 +4,8 @@ Installation instructions are available [here](https://github.com/freescout-help
 
 Full documentation: https://freescout.net/module/ai-integration/
 
+Bug reports and pull requests related to this module should be submitted to this repository.
+
 ## Supported AI Providers
 
 *OpenAI, Gemini (Google AI Studio), DeepSeek, xAI, Mistral AI, Groq, Perplexity, Together AI, Fireworks AI, DigitalOcean Serverless Inference, Z.AI, Ollama (Local), LM Studio (Local), OpenRouter, Custom (OpenAI-compatible)*.
