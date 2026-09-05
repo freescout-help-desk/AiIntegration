@@ -91,7 +91,7 @@ class AiIntegrationController extends Controller
                     $response['status'] = 'success';
                     $response['models'] = $result['models'];
                     \AiIntegration::cacheModels($result['models'], $params);
-                } else {
+                } elseif (!empty($result['msg'])) {
                     $response['msg'] = '[Load Models] '.$result['msg'];
                 }
                 break;

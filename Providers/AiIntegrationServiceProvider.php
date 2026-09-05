@@ -35,7 +35,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             //'models_endpoint' => '/v1beta/models',
             'embedding_model' => 'gemini-embedding-001',
             // First - dot separated path: data.models
-            'models_names_in_response' => ['models' => 'name'],
+            'model_names_in_response' => 'models.name',
         ],
         /*'anthropic' => [
             'name' => 'Anthropic (Claude)',
@@ -47,7 +47,6 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'name' => 'DeepSeek',
             'base_url' => 'https://api.deepseek.com',
             'requires_api_key' => true,
-            'models_names_in_response' => ['data' => 'id'],
         ],
         'xai' => [
             'name' => 'xAI',
@@ -451,8 +450,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $response = self::apiRequest(self::METHOD_MODELS, [], $settings);
 
             $msg = '';
-            if (empty($response['models']) || empty($response['status']) || $response['status'] == 'error') {
-                $msg = 'Response: '.json_encode($response);
+            if ((empty($response['models']) && empty($response['data']))) {
+                $msg = 'Could not retrieve models. Response: '.json_encode($response);
             }
             if ($msg) {
                 self::logApiError($msg, self::METHOD_MODELS);
@@ -467,11 +466,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $models = [];
 
         if (!empty($response)) {
-            $models_names_in_response = self::getProviderConfig('models_names_in_response') ?: ['models' => 'name'];
+            $model_names_in_response = self::getProviderConfig('model_names_in_response', $settings['provider'] ?? null) ?: 'data.id';
 
-            $first_key = array_key_first($models_names_in_response);
-            $list = array_get($response, $first_key);
-            $models = array_column($list, $models_names_in_response[$first_key]);
+            $parts = explode('.', $model_names_in_response);
+            $column_name = array_pop($parts);
+            $path = implode('.', $parts);
+            $models = array_pluck(array_get($response, $path, []), $column_name);
 
             // Remove everything before "/" in model name.
             $models = array_map(function($model) {
