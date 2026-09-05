@@ -20,5 +20,8 @@
     "files": [
         "start.php"
     ],
-    "requires": []
+    "requires": [],
+    "latestVersionUrl": "https://raw.githubusercontent.com/freescout-help-desk/AiIntegration/refs/heads/master/module.json",
+    "latestVersionZipUrl": "https://github.com/freescout-help-desk/AiIntegration/archive/refs/heads/master.zip",
+    "changelogUrl": "https://freescout.net/module/ai-integration/?changelog=1"
 }
