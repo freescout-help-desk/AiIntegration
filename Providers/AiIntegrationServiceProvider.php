@@ -157,11 +157,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'newline-separated bullet list, each bullet starts with "- "',
             'summary bullets must be chronological from oldest notable update to newest notable update',
             'each bullet should describe one notable update in plain language',
+            'make sure to summatize whole conversation',
             'do not use any Markdown',
             'use the conversation context only',
             'use the participant names; do not use generic roles like customer, staff, user, or agent',
             'skip greetings, signatures, quoted text, auto-replies, boilerplate, duplicate acknowledgements, and other non-noteworthy messages',
-            'prefer 3-8 bullets; use fewer when the conversation is short',
+            'prefer 3-8 bullets; maximum 10; use fewer when the conversation is short',
             'do not use lead-ins like "Subject shows", "The latest thread", "The email", etc.',
             'do not describe the layout of the conversation, just the content',
             'state facts only, do not draw conclusions',
@@ -837,7 +838,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
         $messages = $threads
                 // Take max 12 newest threads.
-                ->slice(-12)
+                //->slice(-12)
                 ->map(function ($thread) {
                     return [
                         'created_at' => $thread->created_at ? $thread->created_at->toDateTimeString() : '',
