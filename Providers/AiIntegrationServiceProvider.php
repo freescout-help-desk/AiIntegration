@@ -850,7 +850,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 ->values()
                 ->toArray();
         
-        $context .= "Customer name: " . $customer ? $customer->getFullName(true, true) : '' . "\n";
+        $context .= "Customer name: " . ($customer ? $customer->getFullName(true, true) : '') . "\n";
         $context .= "Conversation number: ".$conversation->number."\n";
         $context .= "Conversation subject: ".$conversation->subject."\n";
         $context .= "Conversation messages in JSON format: ".json_encode($messages)."\n\n";
