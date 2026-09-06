@@ -259,34 +259,20 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 return $params;
             }
 
-            // Check status.
-            $active = false;
-            $settings = self::getSettings();
+            // Perform test API request to check credentials and get arror message.
+            $dummy_data = self::dummyConversation();
+            // Pre-set model.
+            $result = self::draftReply($dummy_data['conversation'], $dummy_data['threads']);
 
-            if (empty($settings['aiintegration.provider'])
-                || (self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']) && empty($settings['aiintegration.api_key']))
-                || empty($settings['aiintegration.model'])
-            ) {
-                $active = false;
-            } else {
-                // Check credentials by executing API request.
-                $dummy_data = self::dummyConversation();
-                // Pre-set model.
-                $result = self::draftReply($dummy_data['conversation'], $dummy_data['threads']);
-
-                if ($result['status'] == 'success' && $result['data']) {
-                    $active = true;
-                }
+            if ($result['status'] != 'success' || empty($result['data'])) {
+                // Show last log message.
+                $last_log_message = Activity::where('log_name', self::LOG_NAME)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                $params['template_vars'] = [
+                    'last_log_message'  => $last_log_message,
+                ];
             }
-            \Option::set('aiintegration.active', $active);
-
-            // Show last log message.
-            $last_log_message = Activity::where('log_name', self::LOG_NAME)
-                ->orderBy('id', 'desc')
-                ->first();
-            $params['template_vars'] = [
-                'last_log_message'  => $last_log_message,
-            ];
 
             $params['settings'] = [
                 'aiintegration.provider' => [
@@ -341,6 +327,17 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $request->merge([
                 'settings' => $settings
             ]);
+
+            // Check and update status.
+            $active = false;
+            if (!empty($settings['aiintegration.provider'])
+                && !empty($settings['aiintegration.model'])
+                && (!(self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']))
+                    || !empty($settings['aiintegration.api_key']))
+            ) {
+                $active = true;
+            }
+            \Option::set('aiintegration.active', $active);
 
             return $request;
         }, 20, 3);

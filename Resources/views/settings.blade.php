@@ -13,7 +13,7 @@
                 / <a href="{{ route('logs', ['name' => \AiIntegration::LOG_NAME]) }}" target="_blank">{{ __('Logs') }}</a>
             </label>
             
-            @if (!empty($last_log_message) && !\AiIntegration::isActive())
+            @if (!empty($last_log_message) /*&& !\AiIntegration::isActive()*/)
                 <div class="margin-top-10 text-help">{{ __('Last log message') }}:</div>
                 <pre class="margin-bottom-0 margin-top-5 input-sized-lg alert alert-warning">[{{ App\User::dateFormat($last_log_message->created_at) }}] {{ $last_log_message->description }}</pre>
             @endif
