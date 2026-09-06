@@ -259,24 +259,17 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 return $params;
             }
 
-            // Check status.
+            // Check status from required settings only.
+            // Avoid a live draftReply() on every settings page load (cost, latency, flaky Inactive status).
             $active = false;
             $settings = self::getSettings();
 
-            if (empty($settings['aiintegration.provider'])
-                || (self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']) && empty($settings['aiintegration.api_key']))
-                || empty($settings['aiintegration.model'])
+            if (!empty($settings['aiintegration.provider'])
+                && !empty($settings['aiintegration.model'])
+                && (!(self::getProviderConfig('requires_api_key', $settings['aiintegration.provider']))
+                    || !empty($settings['aiintegration.api_key']))
             ) {
-                $active = false;
-            } else {
-                // Check credentials by executing API request.
-                $dummy_data = self::dummyConversation();
-                // Pre-set model.
-                $result = self::draftReply($dummy_data['conversation'], $dummy_data['threads']);
-
-                if ($result['status'] == 'success' && $result['data']) {
-                    $active = true;
-                }
+                $active = true;
             }
             \Option::set('aiintegration.active', $active);
 
