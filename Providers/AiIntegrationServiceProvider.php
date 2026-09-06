@@ -749,6 +749,21 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function assist($action, $body)
     {
+        $allowed_actions = [
+            'check_spelling',
+            'make_longer',
+            'make_shorter',
+            'make_friendlier',
+            'make_professional',
+        ];
+
+        if (!in_array($action, $allowed_actions, true)) {
+            return [
+                'status' => 'error',
+                'msg' => 'Unknown assist action',
+            ];
+        }
+
         $instructions = self::prepareInstructions($action);
 
         $result = self::apiChatCompletions(
