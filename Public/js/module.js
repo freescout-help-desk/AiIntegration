@@ -29,11 +29,22 @@ var AiEditorButton = function (context) {
 	return obj;
 }
 
-fs_conv_editor_buttons['ai'] = AiEditorButton;
-fs_conv_editor_toolbar[0][1].push('ai');
+function aiiRegisterEditorButton()
+{
+	if (typeof fs_conv_editor_buttons === 'undefined' || typeof fs_conv_editor_toolbar === 'undefined') {
+		return;
+	}
+	if (typeof fs_conv_editor_buttons['ai'] !== 'undefined') {
+		return;
+	}
+	fs_conv_editor_buttons['ai'] = AiEditorButton;
+	fs_conv_editor_toolbar[0][1].push('ai');
+}
 
 function aiiInit()
 {
+	aiiRegisterEditorButton();
+
 	$(document).ready(function() {
 		// Summarize
 		$("#aii_summarize").click(function(e){

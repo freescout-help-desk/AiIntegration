@@ -347,6 +347,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
         // Show block in conversation
         \Eventy::addAction('conversation.after_subject_block', function($conversation, $mailbox) {
+            if (!self::isActive()) {
+                return;
+            }
             echo \View::make('aiintegration::partials/conv_panel', [
                 'conversation_id' => $conversation->id,
             ])->render();
@@ -355,11 +358,17 @@ class AiIntegrationServiceProvider extends ServiceProvider
         // JavaScript in conversation
         \Eventy::addAction('javascript', function() {
             if (\Route::is('conversations.view') || \Route::is('conversations.create')) {
-                echo 'aiiInit();';
+                echo 'var aii_active = '.(self::isActive() ? 'true' : 'false').';';
+                if (self::isActive()) {
+                    echo 'aiiInit();';
+                }
             }
         });
 
         \Eventy::addAction('layout.body_bottom', function() {
+            if (!self::isActive()) {
+                return;
+            }
             if (\Route::is('conversations.view') || \Route::is('conversations.create')) {
                 ?>
                     <ul id="aii_editor_items" class="hidden">

@@ -24,6 +24,11 @@ class AiIntegrationController extends Controller
         switch ($request->action) {
 
             case 'summarize':
+                if (!\AiIntegration::isActive()) {
+                    $response['msg'] = __('AI Integration is not configured.');
+                    break;
+                }
+
                 $conversation = Conversation::find($request->conversation_id);
 
                 if (!$conversation || !$auth_user->can('view', $conversation)) {
@@ -44,6 +49,11 @@ class AiIntegrationController extends Controller
                 break;
 
             case 'assist':
+                if (!\AiIntegration::isActive()) {
+                    $response['msg'] = __('AI Integration is not configured.');
+                    break;
+                }
+
                 $result = \AiIntegration::assist($request->sub_action, $request->body);
 
                 if ($result['status'] == 'success' && !empty($result['data'])) {
@@ -117,6 +127,10 @@ class AiIntegrationController extends Controller
 
         switch ($request->action) {
             case 'generate_reply':
+                if (!\AiIntegration::isActive()) {
+                    \Helper::denyAccess();
+                }
+
                 $conversation = Conversation::find($request->param);
 
                 if (!$conversation || !$auth_user->can('view', $conversation)) {
