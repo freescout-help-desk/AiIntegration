@@ -21,6 +21,11 @@ class AiIntegrationController extends Controller
 
         $auth_user = auth()->user();
 
+        if (!\AiIntegration::isActive()) {
+            $response['msg'] = __('AI is not configured.');
+            return \Response::json($response);
+        }
+
         switch ($request->action) {
 
             case 'summarize':
@@ -118,6 +123,10 @@ class AiIntegrationController extends Controller
     public function ajaxHtml(Request $request)
     {
         $auth_user = auth()->user();
+
+        if (!\AiIntegration::isActive()) {
+            \Helper::denyAccess();
+        }
 
         switch ($request->action) {
             case 'generate_reply':

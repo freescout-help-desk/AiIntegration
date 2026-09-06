@@ -29,8 +29,10 @@ var AiEditorButton = function (context) {
 	return obj;
 }
 
-fs_conv_editor_buttons['ai'] = AiEditorButton;
-fs_conv_editor_toolbar[0][1].push('ai');
+if ($("body:first").hasClass('aii-active')) {
+	fs_conv_editor_buttons['ai'] = AiEditorButton;
+	fs_conv_editor_toolbar[0][1].push('ai');
+}
 
 function aiiInit()
 {
