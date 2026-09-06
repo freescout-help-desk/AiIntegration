@@ -50,7 +50,11 @@ class AiIntegrationController extends Controller
                     $response['status'] = 'success';
                     $response['body'] = \Helper::purifyHtml($result['data']);
                 } else {
-                    $response['msg'] = __('Error occurred. Please try again later.');
+                    if (!empty($result['msg'])) {
+                        $response['msg'] = $result['msg'];
+                    } else {
+                        $response['msg'] = __('Error occurred. Please try again later.');
+                    }
                     \AiIntegration::logApiError(' Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
                 }
                 break;

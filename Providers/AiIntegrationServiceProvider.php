@@ -556,7 +556,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $requires_api_key = self::getProviderConfig('requires_api_key', $provider) ?? false;
 
         if (!$api_key && $requires_api_key) {
-            throw new \ApiCallException('API Key is required');
+            throw new ApiCallException('API Key is required');
         }
 
         $url = $base_url.$method;
@@ -749,6 +749,21 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function assist($action, $body)
     {
+        $allowed_actions = [
+            'check_spelling',
+            'make_longer',
+            'make_shorter',
+            'make_friendlier',
+            'make_professional',
+        ];
+
+        if (!in_array($action, $allowed_actions, true)) {
+            return [
+                'status' => 'error',
+                'msg' => 'Unknown assist action',
+            ];
+        }
+
         $instructions = self::prepareInstructions($action);
 
         $result = self::apiChatCompletions(
@@ -850,7 +865,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 ->values()
                 ->toArray();
         
-        $context .= "Customer name: " . $customer ? $customer->getFullName(true, true) : '' . "\n";
+        $context .= "Customer name: " . ($customer ? $customer->getFullName(true, true) : '') . "\n";
         $context .= "Conversation number: ".$conversation->number."\n";
         $context .= "Conversation subject: ".$conversation->subject."\n";
         $context .= "Conversation messages in JSON format: ".json_encode($messages)."\n\n";
