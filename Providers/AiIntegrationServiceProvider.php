@@ -123,7 +123,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         
     ];*/
 
-    public static $system_instructinos = [
+    public static $system_instructions = [
         'draft_reply' => [
             'you are a helpful assistant part of a support ticketing system',
             //'return only valid JSON matching the requested schema',
@@ -156,7 +156,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'newline-separated bullet list, each bullet starts with "- "',
             'summary bullets must be chronological from oldest notable update to newest notable update',
             'each bullet should describe one notable update in plain language',
-            'make sure to summatize whole conversation',
+            'make sure to summarize whole conversation',
             'do not use any Markdown',
             'use the conversation context only',
             'use the participant names; do not use generic roles like customer, staff, user, or agent',
@@ -176,7 +176,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'rewrite the text making it shorter and more concise, keep the meaning, preserve HTML and send back only the corrected text',
         ],
         'make_friendlier' => [
-            'rewrite the text to sound more friendly and casual, without exclaimation marks, keep the meaning, preserve HTML and send back only the corrected text',
+            'rewrite the text to sound more friendly and casual, without exclamation marks, keep the meaning, preserve HTML and send back only the corrected text',
         ],
         'make_professional' => [
             'rewrite the text to sound more professional and formal, keep the meaning, preserve HTML and send back only the corrected text',
@@ -510,7 +510,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 ],
             ],
             'max_tokens' => $max_tokens,
-            'model' => $model ?? self::getSetting('model'),
+            'model' => self::getSetting('model'),
             // https://developers.openai.com/api/docs/guides/structured-outputs
             //'response_format' => $response_format
         ];
@@ -806,7 +806,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function prepareInstructions($type, $extra = [])
     {
-        $instructions = implode('. ', array_merge(self::$system_instructinos[$type], $extra));
+        $instructions = implode('. ', array_merge(self::$system_instructions[$type], $extra));
         $instructions = strtr($instructions, [
             ':user_locale' => self::userLanguageName()
         ]);
@@ -863,6 +863,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $context = "";
 
         $messages = $threads
+                // Commented as when not all threads are passed to AI
+                // the summary may be not full.
+                // 
                 // Take max 12 newest threads.
                 //->slice(-12)
                 ->map(function ($thread) {

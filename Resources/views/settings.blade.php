@@ -25,8 +25,8 @@
 
         <div class="col-sm-6">
             <select id="aiintegration_provider" class="form-control input-sized-lg" name="settings[aiintegration.provider]">
-                @foreach (AiIntegration::getProviders() as $prodier_code => $provider)
-                    <option value="{{ $prodier_code }}" @if ($settings['aiintegration.provider'] == $prodier_code) selected @endif data-aii-base-url="{{ $provider['base_url'] }}">{{ $provider['name'] }}</option>
+                @foreach (AiIntegration::getProviders() as $provider_code => $provider)
+                    <option value="{{ $provider_code }}" @if ($settings['aiintegration.provider'] == $provider_code) selected @endif data-aii-base-url="{{ $provider['base_url'] }}">{{ $provider['name'] }}</option>
                 @endforeach
             </select>
         </div>
