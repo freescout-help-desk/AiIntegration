@@ -837,8 +837,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $context = "";
 
         $messages = $threads
+                ->filter(function ($thread) {
+                    return trim($thread->body ?? '') !== '';
+                })
                 // Take max 12 newest threads.
-                //->slice(-12)
+                ->slice(-12)
                 ->map(function ($thread) {
                     return [
                         'created_at' => $thread->created_at ? $thread->created_at->toDateTimeString() : '',
