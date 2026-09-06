@@ -556,7 +556,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $requires_api_key = self::getProviderConfig('requires_api_key', $provider) ?? false;
 
         if (!$api_key && $requires_api_key) {
-            throw new \ApiCallException('API Key is required');
+            throw new ApiCallException('API Key is required');
         }
 
         $url = $base_url.$method;
