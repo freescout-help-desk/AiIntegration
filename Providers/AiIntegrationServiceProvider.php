@@ -246,32 +246,32 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
            
             $settings = self::getSettings();
-
             $settings['aiintegration.models'] = self::getCachedModels();
+
+            // Perform test API request to check credentials and get error message.
+            if (request()->isMethod('get') && request()->get('check_connection')) {
+                self::checkConnection();
+            }
 
             return $settings;
         }, 20, 2);
 
         // Section parameters.
         \Eventy::addFilter('settings.section_params', function($params, $section) {
-           
+
             if ($section != 'ai-integration') {
                 return $params;
             }
 
-            // Perform test API request to check credentials and get arror message.
-            $dummy_data = self::dummyConversation();
-            // Pre-set model.
-            $result = self::draftReply($dummy_data['conversation'], $dummy_data['threads']);
-
-            if ($result['status'] != 'success' || empty($result['data'])) {
-                // Show last log message.
+            // Show last log message.
+            if (session()->get('aiintegration.show_log')) {
                 $last_log_message = Activity::where('log_name', self::LOG_NAME)
                     ->orderBy('id', 'desc')
                     ->first();
                 $params['template_vars'] = [
                     'last_log_message'  => $last_log_message,
                 ];
+                session()->forget('aiintegration.show_log');
             }
 
             $params['settings'] = [
@@ -341,6 +341,18 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
             return $request;
         }, 20, 3);
+
+        // After saving settings.
+        \Eventy::addFilter('settings.after_save', function($response, $request, $section, $settings) {
+            if ($section != 'ai-integration') {
+                return $response;
+            }
+
+            // Force connection check.
+            self::checkConnection($request);
+
+            return $response;
+        }, 20, 4);
 
         // Show block in conversation
         \Eventy::addAction('conversation.after_subject_block', function($conversation, $mailbox) {
@@ -452,6 +464,25 @@ class AiIntegrationServiceProvider extends ServiceProvider
             return self::$providers[$provider][$param] ?? null;
         } else {
             return self::$providers[$provider] ?? [];
+        }
+    }
+
+    public static function checkConnection($request = null)
+    {
+        if (!$request) {
+            $request = request();
+        }
+
+        $dummy_data = self::dummyConversation();
+        // Pre-set model.
+        $result = self::draftReply($dummy_data['conversation'], $dummy_data['threads']);
+
+        if ($result['status'] != 'success' || empty($result['data'])) {
+            // Show last log message.
+            $request->session()->put('aiintegration.show_log', true);
+            $request->session()->flash('flash_error_floating', __('An error occurred while connecting to the AI provider. Check the logs for more details.'));
+        } else {
+            $request->session()->flash('flash_success_floating', __('Connection established!'));
         }
     }
 

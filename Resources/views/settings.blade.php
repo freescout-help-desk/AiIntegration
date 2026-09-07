@@ -82,6 +82,8 @@
             <button type="submit" class="btn btn-primary">
                 {{ __('Save') }}
             </button>
+            &nbsp;
+            <a href="?check_connection=1" class="btn btn-default btn-sm">{{ __('Check Connection') }}</a>
         </div>
     </div>
 </form>
