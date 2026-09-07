@@ -445,6 +445,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
     }
 
+    public static function getApiKey()
+    {
+        return self::getSetting('api_key');
+    }
+
     public static function isActive()
     {
         return \Option::get('aiintegration.active');
@@ -496,10 +501,10 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 $msg = 'Could not retrieve models. Response: '.json_encode($response);
             }
             if ($msg) {
-                self::logApiError($msg, self::METHOD_MODELS);
+                self::logApiError($msg, self::METHOD_MODELS, $settings);
             }
         } catch (ApiCallException $e) {
-            self::logApiError($e->getMessage(), self::METHOD_MODELS);
+            self::logApiError($e->getMessage(), self::METHOD_MODELS, $settings);
             return [
                 'status' => 'error',
                 'msg' => $e->getMessage()
@@ -733,11 +738,16 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return $api_key;
     }
 
-    public static function logApiError($msg, $method = '')
+    public static function logApiError($msg, $method = '', $settings = [])
     {
         if ($method) {
             $msg = '['.trim($method, '/').'] '.$msg;
         }
+
+        // Strip API Key from the message.
+        $api_key = $settings['api_key'] ?: self::getApiKey();
+        $msg = str_replace($api_key, substr($api_key, 0, 6).'***', $msg);
+
         \Helper::log(self::LOG_NAME, $msg);
         \Log::error('[AI Integration] '.$msg);
     }
