@@ -74,10 +74,11 @@ function aiiInitSettings()
 			$("#aii_load_models").click();
 		});
 
-		$("#aiintegration_model").select2({...fs_select2_config, ...{
-			maximumSelectionLength: 1
-			//multiple: false
-		}}).on('select2:selecting', function(e) {
+		// Select2 allowing to enter custom value and select only one element
+		$("#aiintegration_model").select2({
+			dropdownCssClass: "select2-multi-dropdown",
+			tags: true
+		}).on('select2:selecting', function(e) {
 			// Allow only one element to be selected.
 			//var data = e.params.data;
 			if ($("#aiintegration_model").val().length) {
@@ -85,9 +86,8 @@ function aiiInitSettings()
 			    // e.preventDefault();
 			    // return false;
 			}
-		});
 		// Without this existing models are not shown in the dropdown list
-		$("#aiintegration_model").select2().trigger('change');
+		}).trigger('change');
 
 		// Load models
 		$("#aii_load_models").click(function(e){
@@ -100,10 +100,10 @@ function aiiInitSettings()
 	    	var api_key = $('#aiintegration_api_key').val();
 			var selected_model = $('#aiintegration_model').val();
 
-	    	if (!api_key) {
+	    	/*if (!api_key) {
 				aiiCleanModels(selected_model);
 	    		return;
-	    	}
+	    	}*/
 			
 			var button = $(this);
 	    	button.button('loading');

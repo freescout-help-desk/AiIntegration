@@ -745,7 +745,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
 
         // Strip API Key from the message.
-        $api_key = $settings['api_key'] ?: self::getApiKey();
+        $api_key = $settings['api_key'] ?? self::getApiKey();
         $msg = str_replace($api_key, substr($api_key, 0, 6).'***', $msg);
 
         \Helper::log(self::LOG_NAME, $msg);

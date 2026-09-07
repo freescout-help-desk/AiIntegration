@@ -57,7 +57,7 @@
 
         <div class="col-sm-6">
             <div class="input-group input-sized-lg">
-                <select type="text" id="aiintegration_model" class="form-control" name="settings[aiintegration.model]" autocomplete="off" multiple="">
+                <select type="text" id="aiintegration_model" class="form-control" name="settings[aiintegration.model]" autocomplete="off" multiple>
                     @php
                         $selected_model = old('settings.aiintegration.model', $settings['aiintegration.model']);
                     @endphp
