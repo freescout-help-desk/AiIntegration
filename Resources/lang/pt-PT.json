@@ -1,0 +1,22 @@
+{
+    "AI Assist": "Assistente de IA",
+    "AI Integration": "Integração de IA",
+    "AI Provider": "Fornecedor de IA",
+    "AI is not configured.": "A IA não está configurada.",
+    "API Key": "Chave API",
+    "An error occurred while connecting to the AI provider. Check the logs for more details.": "Ocorreu um erro ao ligar ao fornecedor de IA. Consulte os registos para mais detalhes.",
+    "Base URL": "URL Base",
+    "Check spelling and grammar": "Verificar ortografia e gramática",
+    "Draft Reply (AI)": "Rascunho de Resposta (IA)",
+    "Last log message": "Última mensagem de registo",
+    "Load": "Carregar",
+    "Make it friendlier": "Tornar mais simpático",
+    "Make it longer": "Tornar mais longo",
+    "Make it more professional": "Tornar mais profissional",
+    "Make it shorter": "Tornar mais curto",
+    "Model": "Modelo",
+    "Summarize": "Resumir",
+    "Translation": "Tradução",
+    "Use": "Usar",
+    "Use (as Draft)": "Usar (como Rascunho)"
+}
