@@ -78,7 +78,7 @@
     </div>
 
     <div class="form-group">
-        <label class="col-sm-2 control-label">{{ __('Inline Images') }}</label>
+        <label class="col-sm-2 control-label">{{ __('Send Images to AI') }}</label>
 
         <div class="col-sm-6">
             <div class="controls">
@@ -90,7 +90,7 @@
                     </div>
                 </div>
                 <p class="form-help">
-                    {{ __('Send images embedded into messages to the AI. Requires a model which supports image input. Regular attachments are never sent.') }}
+                    {{ __('Send images embedded into messages to the AI. Requires a model which supports image input. Regular attachments are not sent.') }}
                 </p>
             </div>
         </div>
