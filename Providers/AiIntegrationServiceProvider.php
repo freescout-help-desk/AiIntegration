@@ -2,6 +2,7 @@
 
 namespace Modules\AiIntegration\Providers;
 
+use App\Attachment;
 use App\Conversation;
 use App\Customer;
 use App\Thread;
@@ -17,6 +18,27 @@ class AiIntegrationServiceProvider extends ServiceProvider
 {
     const LOG_NAME = 'ai_integration';
     const MAX_TOKENS = 2000;
+
+    // Appended to the instructions when images are passed to the AI.
+    // Without it the model receives the images but does not treat them
+    // as a source of information about the problem.
+    public static $image_instruction = 'images included in the conversation are screenshots provided by the customer; read the text, error messages, dialog titles, and interface elements visible on them and treat them as primary evidence about the problem';
+
+    // Image formats accepted by vision models.
+    public static $image_mime_types = [
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp',
+    ];
+
+    // Max number of inline images passed to the AI in one request.
+    const MAX_IMAGES = 5;
+    // Inline images smaller than this are skipped: signature logos,
+    // tracking pixels, email decorations.
+    const MIN_IMAGE_SIZE = 10240;
+    // Inline images larger than this are skipped.
+    const MAX_IMAGE_SIZE = 4194304;
 
     const METHOD_MODELS = '/models';
     const METHOD_CHAT = '/chat/completions';
@@ -288,6 +310,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 'aiintegration.model' => [
                     'env' => 'AIINTEGRATION_MODEL',
                 ],
+                'aiintegration.send_images' => [
+                    'env' => 'AIINTEGRATION_SEND_IMAGES',
+                ],
             ];
 
             return $params;
@@ -421,6 +446,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'api_key',
             'base_url',
             'model',
+            'send_images',
         ];
 
         $prefix = 'aiintegration.';
@@ -532,8 +558,22 @@ class AiIntegrationServiceProvider extends ServiceProvider
         ];
     }
 
-    public static function apiChatCompletions($system_instructions, $user_prompt, /*$response_format,*/ $max_tokens = self::MAX_TOKENS)
+    public static function apiChatCompletions($system_instructions, $user_prompt, $images = [], /*$response_format,*/ $max_tokens = self::MAX_TOKENS)
     {
+        $user_content = json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        // When there are images, content becomes an array of parts
+        // instead of a plain string.
+        if ($images) {
+            $user_content = array_merge(
+                [[
+                    'type' => 'text',
+                    'text' => $user_content,
+                ]],
+                $images
+            );
+        }
+
         $data = [
             'messages' => [
                 [
@@ -542,7 +582,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 ],
                 [
                     'role' => 'user',
-                    'content' => json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    'content' => $user_content,
                 ],
             ],
             'max_tokens' => $max_tokens,
@@ -766,9 +806,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
             //'customer_context' => ...,
         ];
 
+        $images = self::getInlineImages($threads);
+
         $result = self::apiChatCompletions(
-            self::prepareInstructions('draft_reply'),
+            self::prepareInstructions('draft_reply', self::imageInstructions($images)),
             $user_prompt,
+            $images,
             //self::$response_formats['draft_reply']
         );
 
@@ -783,9 +826,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
     {
         $threads = $conversation->getReplies(true);
 
-        $instructions = self::prepareInstructions('summarize', [
-            'use the following language: '.self::userLanguageName()
-        ]);
+        $images = self::getInlineImages($threads);
+
+        $instructions = self::prepareInstructions('summarize', array_merge(
+            ['use the following language: '.self::userLanguageName()],
+            self::imageInstructions($images)
+        ));
 
         $user_prompt = [
             'conversation' => self::conversationContext($conversation, $threads),
@@ -794,6 +840,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $result = self::apiChatCompletions(
             $instructions,
             $user_prompt,
+            $images,
         );
 
         return $result;
@@ -871,6 +918,77 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
 
         return \Helper::getLocaleData($locale, 'name');
+    }
+
+    // Extra instructions to add when images are passed to the AI.
+    public static function imageInstructions($images)
+    {
+        if (!$images) {
+            return [];
+        }
+
+        return [self::$image_instruction];
+    }
+
+    // Collects images embedded into the message body (inline images) and
+    // returns them as OpenAI-compatible image_url parts.
+    //
+    // Only embedded images are collected. Regular attachments (logs,
+    // documents, archives) are not what the customer is pointing at when
+    // describing a problem and would just add noise and tokens.
+    public static function getInlineImages($threads)
+    {
+        if (!self::getSetting('send_images')) {
+            return [];
+        }
+
+        $thread_ids = [];
+        foreach ($threads as $thread) {
+            if (!empty($thread->id)) {
+                $thread_ids[] = $thread->id;
+            }
+        }
+        if (!$thread_ids) {
+            return [];
+        }
+
+        // Attachments are queried directly instead of via $thread->attachments:
+        // the has_attachments flag on threads is not always set, and this
+        // avoids one query per thread.
+        //
+        // Attachments may be stored with TYPE_OTHER even when they are images,
+        // so the mime type is used instead of the type column.
+        $attachments = Attachment::whereIn('thread_id', $thread_ids)
+            ->where('embedded', true)
+            ->whereIn('mime_type', self::$image_mime_types)
+            ->where('size', '>=', self::MIN_IMAGE_SIZE)
+            ->where('size', '<=', self::MAX_IMAGE_SIZE)
+            ->orderBy('id')
+            ->limit(self::MAX_IMAGES)
+            ->get();
+
+        $images = [];
+
+        foreach ($attachments as $attachment) {
+            try {
+                $contents = $attachment->getFileContents();
+            } catch (\Exception $e) {
+                $contents = '';
+            }
+            if (!$contents) {
+                continue;
+            }
+
+            $images[] = [
+                'type' => 'image_url',
+                'image_url' => [
+                    'url' => 'data:'.$attachment->mime_type
+                        .';base64,'.base64_encode($contents),
+                ],
+            ];
+        }
+
+        return $images;
     }
 
     public static function conversationContext($conversation, $threads)

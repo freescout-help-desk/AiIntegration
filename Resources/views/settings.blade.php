@@ -77,6 +77,25 @@
         </div>
     </div>
 
+    <div class="form-group">
+        <label class="col-sm-2 control-label">{{ __('Inline Images') }}</label>
+
+        <div class="col-sm-6">
+            <div class="controls">
+                <div class="onoffswitch-wrap">
+                    <input type="hidden" name="settings[aiintegration.send_images]" value="0">
+                    <div class="onoffswitch">
+                        <input type="checkbox" name="settings[aiintegration.send_images]" value="1" id="aiintegration_send_images" class="onoffswitch-checkbox" @if (old('settings.aiintegration.send_images', $settings['aiintegration.send_images'])) checked="checked" @endif>
+                        <label class="onoffswitch-label" for="aiintegration_send_images"></label>
+                    </div>
+                </div>
+                <p class="form-help">
+                    {{ __('Send images embedded into messages to the AI. Requires a model which supports image input. Regular attachments are never sent.') }}
+                </p>
+            </div>
+        </div>
+    </div>
+
     <div class="form-group margin-top margin-bottom">
         <div class="col-sm-6 col-sm-offset-2">
             <button type="submit" class="btn btn-primary">
