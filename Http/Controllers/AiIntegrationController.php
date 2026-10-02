@@ -8,7 +8,16 @@ use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
 class AiIntegrationController extends Controller
-{
+{ 
+    private function removeThinkingTags($text)
+    {
+        if (empty($text)) {
+            return $text;
+        }
+        $text = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $text);
+        return trim($text);
+    }
+
     /**
      * Ajax controller.
      */
@@ -40,7 +49,9 @@ class AiIntegrationController extends Controller
 
                     if ($result['status'] == 'success' && !empty($result['data'])) {
                         $response['status'] = 'success';
-                        $response['summary'] = htmlspecialchars($result['data']);
+                        // Фильтруем от тегов think
+                        $cleanSummary = $this->removeThinkingTags($result['data']);
+                        $response['summary'] = htmlspecialchars($cleanSummary);
                     } else {
                         $response['msg'] = __('Error occurred. Please try again later.');
                         \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
@@ -53,7 +64,9 @@ class AiIntegrationController extends Controller
 
                 if ($result['status'] == 'success' && !empty($result['data'])) {
                     $response['status'] = 'success';
-                    $response['body'] = \Helper::purifyHtml($result['data']);
+                    // Фильтруем подсказки ассистента от тегов think
+                    $cleanAssist = $this->removeThinkingTags($result['data']);
+                    $response['body'] = \Helper::purifyHtml($cleanAssist);
                 } else {
                     if (!empty($result['msg'])) {
                         $response['msg'] = $result['msg'];
@@ -146,8 +159,9 @@ class AiIntegrationController extends Controller
                     && !empty($result['data'])
                     && !empty($result['data']['reply'])
                 ) {
-                    $reply = $result['data']['reply'];
-                    $translation = $result['data']['reply_translation'] ?? '';
+                    // Фильтруем черновик ответа и перевод от тегов think
+                    $reply = $this->removeThinkingTags($result['data']['reply']);
+                    $translation = $this->removeThinkingTags($result['data']['reply_translation'] ?? '');
                 } else {
                     $error = __('Error occurred. Please try again later.');
                     \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
