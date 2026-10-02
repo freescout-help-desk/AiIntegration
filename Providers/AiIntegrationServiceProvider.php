@@ -1235,6 +1235,15 @@ class AiIntegrationServiceProvider extends ServiceProvider
         ];
     }
 
+    public static function removeThinkingTags($text)
+    {
+        if (empty($text)) {
+            return $text;
+        }
+        $text = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $text);
+        return trim($text);
+    }
+
     /**
      * Register the service provider.
      *
