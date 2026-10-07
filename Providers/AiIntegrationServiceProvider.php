@@ -205,6 +205,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
         'check_spelling' => [
             'correct spelling and grammar mistakes in the text, do not change its meaning, preserve HTML and send back only the corrected text',
         ],
+        'check_improve' => [
+            'check and improve the text, preserve HTML and send back only the corrected text',
+        ],
         'make_longer' => [
             'expand and elaborate on the text, make it longer and more detailed, preserve HTML and send back only the corrected text',
         ],
@@ -426,6 +429,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 ?>
                     <ul id="aii_editor_items" class="hidden">
                         <li><a href="#" data-action="check_spelling"><?php echo __h('Check spelling and grammar') ?></a></li>
+                        <li><a href="#" data-action="check_improve"><?php echo __h('Check and improve') ?></a></li>
                         <li><a href="#" data-action="make_longer"><?php echo __h('Make it longer') ?></a></li>
                         <li><a href="#" data-action="make_shorter"><?php echo __h('Make it shorter') ?></a></li>
                         <li><a href="#" data-action="make_friendlier"><?php echo __h('Make it friendlier') ?></a></li>
@@ -995,6 +999,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
     {
         $allowed_actions = [
             'check_spelling',
+            'check_improve',
             'make_longer',
             'make_shorter',
             'make_friendlier',
