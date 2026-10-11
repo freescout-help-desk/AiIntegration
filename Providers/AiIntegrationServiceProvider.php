@@ -825,7 +825,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $retry_delay_ms = 500;
 
         for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
-            $ch = curl_init($url);
+            $ch = curl_init();
 
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
@@ -840,7 +840,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
             \Helper::setCurlDefaultOptions($ch);
 
-            $response = curl_exec($ch);
+            $response = \Helper::curlExec($url, $ch);
 
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
