@@ -146,6 +146,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'requires_api_key' => true,
             'embedding_model' => 'openai/text-embedding-3-small',
         ],
+        'demonroute' => [
+            'name' => 'Demon Route',
+            'base_url' => 'https://api.demonroute.com/v1',
+            'requires_api_key' => true,
+        ],
         'custom' => [
             'name' => 'Custom (OpenAI-compatible)',
             'base_url' => '',
