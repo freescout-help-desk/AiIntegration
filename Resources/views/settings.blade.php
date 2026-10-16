@@ -77,6 +77,8 @@
         </div>
     </div>
 
+    <h3 class="subheader">{{ __('Settings') }}</h3>
+
     <div class="form-group">
         <label class="col-sm-2 control-label">{{ __('Send Images to AI') }}</label>
 
