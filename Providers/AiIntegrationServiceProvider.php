@@ -24,6 +24,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
     // as a source of information about the problem.
     public static $image_instruction = 'images included in the conversation are screenshots provided by the customer; read the text, error messages, dialog titles, and interface elements visible on them and treat them as primary evidence about the problem';
 
+    // Appended to the instructions when internal notes are passed to the AI.
+    public static $notes_instruction = 'messages of type internal_note are internal notes written by the support team and are not visible to the customer; use them as background information about the problem and the actions already taken, but never quote or reveal them to the customer';
+
     // Image formats accepted by vision models.
     public static $image_mime_types = [
         'image/png',
@@ -330,6 +333,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 'aiintegration.send_images' => [
                     'env' => 'AIINTEGRATION_SEND_IMAGES',
                 ],
+                'aiintegration.include_notes' => [
+                    'env' => 'AIINTEGRATION_INCLUDE_NOTES',
+                ],
+                'aiintegration.max_tokens' => [
+                    'env' => 'AIINTEGRATION_MAX_TOKENS',
+                ],
             ];
 
             return $params;
@@ -365,6 +374,15 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
             // Do not save dummy value.
             $settings['aiintegration.api_key'] = self::decodeApiKey($settings['aiintegration.api_key']);
+
+            // Empty value means default.
+            if (isset($settings['aiintegration.max_tokens'])) {
+                $max_tokens = trim((string)$settings['aiintegration.max_tokens']);
+                if ($max_tokens !== '' && (!ctype_digit($max_tokens) || (int)$max_tokens < 1)) {
+                    $max_tokens = '';
+                }
+                $settings['aiintegration.max_tokens'] = $max_tokens;
+            }
 
             $request->merge([
                 'settings' => $settings
@@ -470,6 +488,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'base_url',
             'model',
             'send_images',
+            'include_notes',
+            'max_tokens',
         ];
 
         $prefix = 'aiintegration.';
@@ -542,6 +562,16 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return 'max_tokens';
     }
 
+    // Max number of tokens in the AI response.
+    // Reasoning models spend part of this budget on thinking,
+    // so the default may be not enough for them.
+    public static function getMaxTokens()
+    {
+        $max_tokens = (int)self::getSetting('max_tokens');
+
+        return $max_tokens > 0 ? $max_tokens : self::MAX_TOKENS;
+    }
+
     public static function checkConnection($request = null)
     {
         if (!$request) {
@@ -608,8 +638,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return self::getProviderConfig('api_format', $provider) ?: self::API_FORMAT_OPENAI;
     }
 
-    public static function apiChatCompletions($system_instructions, $user_prompt, $images = [], /*$response_format,*/ $max_tokens = self::MAX_TOKENS)
+    public static function apiChatCompletions($system_instructions, $user_prompt, $images = [], /*$response_format,*/ $max_tokens = null)
     {
+        if (!$max_tokens) {
+            $max_tokens = self::getMaxTokens();
+        }
+
         if (self::getApiFormat() == self::API_FORMAT_ANTHROPIC) {
             return self::apiAnthropicMessages($system_instructions, $user_prompt, $images, $max_tokens);
         }
@@ -676,8 +710,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
     }
 
     // Anthropic Messages API: https://docs.anthropic.com/en/api/messages
-    public static function apiAnthropicMessages($system_instructions, $user_prompt, $images = [], $max_tokens = self::MAX_TOKENS)
+    public static function apiAnthropicMessages($system_instructions, $user_prompt, $images = [], $max_tokens = null)
     {
+        if (!$max_tokens) {
+            $max_tokens = self::getMaxTokens();
+        }
+
         $user_content = json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         // When there are images, content becomes an array of blocks
@@ -947,7 +985,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $conversation = Conversation::find($conversation);
         }
         if (!$threads) {
-            $threads = $conversation->getReplies(true)/*->sortBy('created_at')*/;
+            $threads = self::getContextThreads($conversation);
         }
 
         $user_prompt = [
@@ -958,7 +996,10 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $images = self::getInlineImages($threads);
 
         $result = self::apiChatCompletions(
-            self::prepareInstructions('draft_reply', self::imageInstructions($images)),
+            self::prepareInstructions('draft_reply', array_merge(
+                self::notesInstructions($threads),
+                self::imageInstructions($images)
+            )),
             $user_prompt,
             $images,
             //self::$response_formats['draft_reply']
@@ -973,12 +1014,13 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function summarize($conversation)
     {
-        $threads = $conversation->getReplies(true);
+        $threads = self::getContextThreads($conversation);
 
         $images = self::getInlineImages($threads);
 
         $instructions = self::prepareInstructions('summarize', array_merge(
             ['use the following language: '.self::userLanguageName()],
+            self::notesInstructions($threads),
             self::imageInstructions($images)
         ));
 
@@ -1068,6 +1110,32 @@ class AiIntegrationServiceProvider extends ServiceProvider
         }
 
         return \Helper::getLocaleData($locale, 'name');
+    }
+
+    // Threads passed to the AI: customer messages and staff replies,
+    // plus internal notes if enabled in settings.
+    // Same order as Conversation::getReplies(): newest first.
+    public static function getContextThreads($conversation)
+    {
+        $types = [Thread::TYPE_CUSTOMER, Thread::TYPE_MESSAGE];
+
+        if (self::getSetting('include_notes')) {
+            $types[] = Thread::TYPE_NOTE;
+        }
+
+        return $conversation->getThreads(null, null, $types);
+    }
+
+    // Extra instructions to add when internal notes are passed to the AI.
+    public static function notesInstructions($threads)
+    {
+        foreach ($threads as $thread) {
+            if ($thread->type == Thread::TYPE_NOTE) {
+                return [self::$notes_instruction];
+            }
+        }
+
+        return [];
     }
 
     // Extra instructions to add when images are passed to the AI.

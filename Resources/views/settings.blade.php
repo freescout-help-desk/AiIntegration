@@ -96,6 +96,37 @@
         </div>
     </div>
 
+    <div class="form-group">
+        <label class="col-sm-2 control-label">{{ __('Send Notes to AI') }}</label>
+
+        <div class="col-sm-6">
+            <div class="controls">
+                <div class="onoffswitch-wrap">
+                    <input type="hidden" name="settings[aiintegration.include_notes]" value="0">
+                    <div class="onoffswitch">
+                        <input type="checkbox" name="settings[aiintegration.include_notes]" value="1" id="aiintegration_include_notes" class="onoffswitch-checkbox" @if (old('settings.aiintegration.include_notes', $settings['aiintegration.include_notes'])) checked="checked" @endif>
+                        <label class="onoffswitch-label" for="aiintegration_include_notes"></label>
+                    </div>
+                </div>
+                <p class="form-help">
+                    {{ __('Pass internal notes to the AI along with customer messages and replies when drafting a reply or summarizing a conversation. The AI is instructed not to reveal notes to the customer.') }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group{{ $errors->has('settings.aiintegration.max_tokens') ? ' has-error' : '' }}">
+        <label for="aiintegration_max_tokens" class="col-sm-2 control-label">{{ __('Max Response Tokens') }}</label>
+
+        <div class="col-sm-6">
+            <input id="aiintegration_max_tokens" type="number" min="1" step="1" class="form-control input-sized" name="settings[aiintegration.max_tokens]" value="{{ old('settings.aiintegration.max_tokens', $settings['aiintegration.max_tokens']) }}" placeholder="{{ \AiIntegration::MAX_TOKENS }}">
+
+            <p class="form-help">
+                {{ __('Maximum number of tokens in the AI response. Reasoning models spend part of it on thinking: if the response is empty or cut off, increase this value.') }} {{ __('Default') }}: {{ \AiIntegration::MAX_TOKENS }}
+            </p>
+        </div>
+    </div>
+
     <div class="form-group margin-top margin-bottom">
         <div class="col-sm-6 col-sm-offset-2">
             <button type="submit" class="btn btn-primary">
