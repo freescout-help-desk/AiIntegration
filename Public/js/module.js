@@ -179,16 +179,18 @@ function aiiCleanModels(selected_model)
 
 function aiiDraftReplyModal(modal)
 {
-	var textarea = modal.children().find('.aii-draft-instructions:first');
+	var container = modal.children().find('.aii-draft:first');
+	var textarea = container.find('.aii-draft-instructions:first');
+	var custom_button = container.find('.aii-draft-custom:first');
 
-	// Draft automatically
-	modal.children().find('.aii-draft-auto:first').click(function(e) {
-		aiiDraftReply(modal, '');
-		e.preventDefault();
-	});
+	// Update counter and "Draft with instructions" button
+	function updateState() {
+		var value = textarea.val();
+		container.find('.aii-draft-counter:first').text(value.length+' / '+textarea.attr('maxlength'));
+		custom_button.prop('disabled', !$.trim(value));
+	}
 
-	// Draft with instructions
-	modal.children().find('.aii-draft-custom:first').click(function(e) {
+	function submitCustom() {
 		var instructions = $.trim(textarea.val());
 
 		if (instructions) {
@@ -196,21 +198,37 @@ function aiiDraftReplyModal(modal)
 		} else {
 			textarea.focus();
 		}
+	}
+
+	textarea.on('input', updateState);
+	updateState();
+
+	// Draft automatically
+	container.find('.aii-draft-auto:first').click(function(e) {
+		aiiDraftReply(modal, '');
+		e.preventDefault();
+	});
+
+	// Draft with instructions
+	custom_button.click(function(e) {
+		submitCustom();
 		e.preventDefault();
 	});
 
 	// Ctrl+Enter / Cmd+Enter
 	textarea.keydown(function(e) {
 		if (e.keyCode == 13 && (e.ctrlKey || e.metaKey)) {
-			modal.children().find('.aii-draft-custom:first').click();
+			submitCustom();
 			e.preventDefault();
 		}
 	});
 
-	// Regenerate: show instructions again
-	modal.children().find('.aii-draft-regenerate:first a').click(function(e) {
-		modal.children().find('.aii-draft-regenerate:first').addClass('hidden');
-		modal.children().find('.aii-draft-chooser:first').removeClass('hidden');
+	// Regenerate: show instructions used for the last draft
+	container.on('click', '.aii-draft-regenerate', function(e) {
+		$(this).addClass('hidden');
+		textarea.val(container.data('aii-last-instructions') || '');
+		updateState();
+		container.find('.aii-draft-chooser:first').removeClass('hidden');
 		textarea.focus();
 		e.preventDefault();
 	});
@@ -222,10 +240,10 @@ function aiiDraftReply(modal, instructions)
 	var chooser = container.find('.aii-draft-chooser:first');
 	var loader = container.find('.modal-loader:first');
 	var result = container.find('.aii-draft-result:first');
-	var regenerate = container.find('.aii-draft-regenerate:first');
+
+	container.data('aii-last-instructions', instructions);
 
 	chooser.addClass('hidden');
-	regenerate.addClass('hidden');
 	result.addClass('hidden').html('');
 	loader.removeClass('hidden');
 
@@ -241,8 +259,12 @@ function aiiDraftReply(modal, instructions)
 
 			if (typeof(response.html) != "undefined") {
 				result.html(response.html).removeClass('hidden');
-				regenerate.removeClass('hidden');
-				aiiShowDraftReply(modal);
+				if (isAjaxSuccess(response)) {
+					aiiShowDraftReply(modal);
+				} else {
+					// Error is shown in the result, allow to retry
+					chooser.removeClass('hidden');
+				}
 			} else {
 				chooser.removeClass('hidden');
 				showAjaxError(response);

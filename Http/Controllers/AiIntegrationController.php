@@ -58,8 +58,8 @@ class AiIntegrationController extends Controller
 
                 $instructions = is_string($request->instructions) ? trim($request->instructions) : '';
 
-                if (!$response['msg'] && mb_strlen($instructions) > \AiIntegration::MAX_INSTRUCTIONS_LENGTH) {
-                    $response['msg'] = __('Instructions are too long (maximum :max characters).', ['max' => \AiIntegration::MAX_INSTRUCTIONS_LENGTH]);
+                if (!$response['msg']) {
+                    $response['msg'] = \AiIntegration::validateDraftInstructions($instructions);
                 }
 
                 if (!$response['msg']) {
@@ -173,14 +173,14 @@ class AiIntegrationController extends Controller
         }
 
         switch ($request->action) {
-            case 'draft_reply':
+            case 'draft_reply_form':
                 $conversation = Conversation::find($request->param);
 
                 if (!$conversation || !$auth_user->can('view', $conversation)) {
                     \Helper::denyAccess();
                 }
 
-                $response = response()->view('aiintegration::ajax_html/draft_reply', [
+                $response = response()->view('aiintegration::ajax_html/draft_reply_form', [
                     'conversation_id' => $conversation->id,
                 ]);
 

@@ -26,3 +26,6 @@
 .aii-draft-instructions {
 	resize: vertical;
 }
+.aii-draft-counter {
+	line-height: 20px;
+}

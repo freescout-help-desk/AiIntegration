@@ -29,6 +29,9 @@
                     <button type="button" class="btn btn-warning aii-reply-apply">
                         <i class="glyphicon glyphicon-ok"></i>&nbsp; {{ __('Use (as Draft)') }}
                     </button>
+                    <button type="button" class="btn btn-link aii-draft-regenerate">
+                        ↻ {{ __('Regenerate') }}
+                    </button>
                 </div>
             </div>
         @endif
