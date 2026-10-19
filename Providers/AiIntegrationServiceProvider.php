@@ -698,7 +698,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
             $msg = '';
             if (empty($response['choices'][0]['message']['content'])) {
-                $msg = 'Response: '.json_encode($response).json_encode($data);
+                // Do not log the request itself: it contains the conversation and the agent's instructions.
+                $msg = 'Response: '.json_encode($response).' Model: '.$data['model'].' '.self::getMaxTokensParam().': '.$max_tokens;
             }
             if ($msg) {
                 self::logApiError($msg, self::METHOD_CHAT);

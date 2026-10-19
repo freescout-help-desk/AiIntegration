@@ -281,7 +281,7 @@ function aiiShowDraftReply(modal)
 			hideReplyEditor();
 		}
 		showReplyForm();
-		setReplyBody(aiiNewLineToBr(body));
+		setReplyBody(aiiNewLineToBr(htmlEscape(body)));
 
 		modal.modal('hide')
 		e.preventDefault();
