@@ -179,11 +179,90 @@ function aiiCleanModels(selected_model)
 
 function aiiDraftReplyModal(modal)
 {
+	var textarea = modal.children().find('.aii-draft-instructions:first');
+
+	// Draft automatically
+	modal.children().find('.aii-draft-auto:first').click(function(e) {
+		aiiDraftReply(modal, '');
+		e.preventDefault();
+	});
+
+	// Draft with instructions
+	modal.children().find('.aii-draft-custom:first').click(function(e) {
+		var instructions = $.trim(textarea.val());
+
+		if (instructions) {
+			aiiDraftReply(modal, instructions);
+		} else {
+			textarea.focus();
+		}
+		e.preventDefault();
+	});
+
+	// Ctrl+Enter / Cmd+Enter
+	textarea.keydown(function(e) {
+		if (e.keyCode == 13 && (e.ctrlKey || e.metaKey)) {
+			modal.children().find('.aii-draft-custom:first').click();
+			e.preventDefault();
+		}
+	});
+
+	// Regenerate: show instructions again
+	modal.children().find('.aii-draft-regenerate:first a').click(function(e) {
+		modal.children().find('.aii-draft-regenerate:first').addClass('hidden');
+		modal.children().find('.aii-draft-chooser:first').removeClass('hidden');
+		textarea.focus();
+		e.preventDefault();
+	});
+}
+
+function aiiDraftReply(modal, instructions)
+{
+	var container = modal.children().find('.aii-draft:first');
+	var chooser = container.find('.aii-draft-chooser:first');
+	var loader = container.find('.modal-loader:first');
+	var result = container.find('.aii-draft-result:first');
+	var regenerate = container.find('.aii-draft-regenerate:first');
+
+	chooser.addClass('hidden');
+	regenerate.addClass('hidden');
+	result.addClass('hidden').html('');
+	loader.removeClass('hidden');
+
+	fsAjax(
+		{
+			action: 'draft_reply',
+			conversation_id: container.attr('data-conversation-id'),
+			instructions: instructions
+		},
+		laroute.route('aiintegration.ajax'), 
+		function(response) {
+			loader.addClass('hidden');
+
+			if (typeof(response.html) != "undefined") {
+				result.html(response.html).removeClass('hidden');
+				regenerate.removeClass('hidden');
+				aiiShowDraftReply(modal);
+			} else {
+				chooser.removeClass('hidden');
+				showAjaxError(response);
+			}
+		}, true,
+		function() {
+			loader.addClass('hidden');
+			chooser.removeClass('hidden');
+			showFloatingAlert('error', Lang.get("messages.ajax_error"));
+		}
+	);
+}
+
+function aiiShowDraftReply(modal)
+{
 	// Show reply text
 	var i = 0;
-	var text = $('.modal-body:visible .aii-generated-reply-hidden:first').text();
+	var text = modal.children().find('.aii-generated-reply-hidden:first').text();
 	var cur_text = '';
-	var container = $('.aii-generated-reply:visible:first');
+	var container = modal.children().find('.aii-generated-reply:first');
 	function typeWriter() {
 		if (i < text.length) {
 			cur_text += text.charAt(i);
@@ -196,7 +275,7 @@ function aiiDraftReplyModal(modal)
 
 	// Apply reply
 	modal.children().find('.aii-reply-apply:first').click(function(e) {
-		var body = $('.aii-generated-reply:visible').text();
+		var body = container.text();
 		
 		if ($(".conv-reply-block").hasClass('conv-note-block')) {
 			hideReplyEditor();
