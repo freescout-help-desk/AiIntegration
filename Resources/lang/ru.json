@@ -13,7 +13,7 @@
     "Draft with instructions": "Составить по инструкциям",
     "E.g.: Tell them the refund was issued today and takes 5–7 business days": "Например: Сообщите, что возврат оформлен сегодня и займёт 5–7 рабочих дней",
     "Instructions are too long (maximum :max characters).": "Инструкции слишком длинные (максимум :max символов).",
-    "Instructions for the AI (optional)": "Инструкции для ИИ (необязательно)",
+    "Instructions for the AI": "Инструкции для ИИ",
     "Last log message": "Последнее сообщение в логе",
     "Load": "Загрузить",
     "Make it friendlier": "Сделать дружелюбнее",

@@ -13,7 +13,7 @@
     "Draft with instructions": "Generar con instrucciones",
     "E.g.: Tell them the refund was issued today and takes 5–7 business days": "Ej.: Dile que el reembolso se ha emitido hoy y tarda de 5 a 7 días hábiles",
     "Instructions are too long (maximum :max characters).": "Las instrucciones son demasiado largas (máximo :max caracteres).",
-    "Instructions for the AI (optional)": "Instrucciones para la IA (opcional)",
+    "Instructions for the AI": "Instrucciones para la IA",
     "Last log message": "Último mensaje del registro",
     "Load": "Cargar",
     "Make it friendlier": "Hacerlo más cercano",
