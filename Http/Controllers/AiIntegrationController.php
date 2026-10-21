@@ -57,13 +57,14 @@ class AiIntegrationController extends Controller
                 }
 
                 $instructions = is_string($request->instructions) ? trim($request->instructions) : '';
+                $previous_draft = is_string($request->previous_draft) ? trim($request->previous_draft) : '';
 
                 if (!$response['msg']) {
-                    $response['msg'] = \AiIntegration::validateDraftInstructions($instructions);
+                    $response['msg'] = \AiIntegration::validateDraftInstructions($instructions, $previous_draft);
                 }
 
                 if (!$response['msg']) {
-                    $result = \AiIntegration::draftReply($conversation, null, $instructions);
+                    $result = \AiIntegration::draftReply($conversation, null, $instructions, $previous_draft);
 
                     $reply = '';
                     $translation = '';
@@ -182,6 +183,7 @@ class AiIntegrationController extends Controller
 
                 $response = response()->view('aiintegration::ajax_html/draft_reply_form', [
                     'conversation_id' => $conversation->id,
+                    'auto_draft' => (bool)\AiIntegration::getSetting('auto_draft'),
                 ]);
 
                 return $this->disableCache($response);
