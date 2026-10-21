@@ -198,6 +198,14 @@ function aiiDraftReplyModal(modal)
 		}
 	});
 
+	// Collapse / expand a draft
+	container.on('click', '.aii-draft-toggle', function(e) {
+		var item = $(this).closest('.aii-draft-item');
+		item.toggleClass('aii-draft-collapsed');
+		item.find('.aii-draft-caret:first').text(item.hasClass('aii-draft-collapsed') ? '▸' : '▾');
+		e.preventDefault();
+	});
+
 	if (container.attr('data-auto-draft') == '1') {
 		aiiDraftReply(modal, '');
 	} else {
@@ -247,19 +255,27 @@ function aiiDraftReply(modal, instructions)
 			if (typeof(response.html) != "undefined") {
 				var item = $('<div class="aii-draft-item"></div>');
 
-				if (instructions) {
-					item.append($('<p class="text-help aii-draft-asked"></p>').text('↳ '+instructions));
-				}
-				item.append(response.html);
-				drafts.append(item);
-
 				if (isAjaxSuccess(response)) {
+					var number = drafts.children('.aii-draft-item').length+1;
+					var title = number+'. '+(instructions || container.attr('data-label-draft'));
+					var toggle = $('<a href="#" class="aii-draft-toggle text-help"><span class="aii-draft-caret">▾</span> <span class="aii-draft-title"></span></a>');
+
+					toggle.find('.aii-draft-title').text(title);
+					item.append(toggle).append($('<div class="aii-draft-body"></div>').append(response.html));
+
+					// Keep only the newest draft expanded
+					drafts.children('.aii-draft-item').addClass('aii-draft-collapsed')
+						.find('.aii-draft-caret').text('▸');
+					drafts.append(item);
+					item[0].scrollIntoView({block: 'start'});
+
 					container.data('aii-last-reply', item.find('.aii-generated-reply-hidden:first').text());
 					input.val('');
 					aiiShowDraftReply(item, modal);
 				} else {
 					// Error is shown in the window, instructions are kept to retry
-					item.addClass('aii-draft-error');
+					item.addClass('aii-draft-error').append(response.html);
+					drafts.append(item);
 				}
 			} else {
 				showAjaxError(response);
