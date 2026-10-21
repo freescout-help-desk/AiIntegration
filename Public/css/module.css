@@ -27,6 +27,17 @@
 	border-top: 1px solid #eee;
 	padding-top: 10px;
 }
-.aii-draft-asked {
+.aii-draft-toggle {
+	display: block;
 	margin: 0 0 6px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.aii-draft-toggle:hover,
+.aii-draft-toggle:focus {
+	text-decoration: none;
+}
+.aii-draft-collapsed .aii-draft-body {
+	display: none;
 }

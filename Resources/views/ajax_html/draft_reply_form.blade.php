@@ -1,4 +1,4 @@
-<div class="aii-draft" data-conversation-id="{{ $conversation_id }}" data-auto-draft="{{ $auto_draft ? 1 : 0 }}">
+<div class="aii-draft" data-conversation-id="{{ $conversation_id }}" data-auto-draft="{{ $auto_draft ? 1 : 0 }}" data-label-draft="{{ __('Draft') }}">
     <div class="aii-drafts"></div>
 
     <div class="text-center modal-loader hidden">
