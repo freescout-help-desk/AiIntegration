@@ -9,4 +9,5 @@ return [
     'send_images' => env('AIINTEGRATION_SEND_IMAGES', false),
     'include_notes' => env('AIINTEGRATION_INCLUDE_NOTES', false),
     'max_tokens' => env('AIINTEGRATION_MAX_TOKENS', ''),
+    'auto_draft' => env('AIINTEGRATION_AUTO_DRAFT', true),
 ];

@@ -180,111 +180,106 @@ function aiiCleanModels(selected_model)
 function aiiDraftReplyModal(modal)
 {
 	var container = modal.children().find('.aii-draft:first');
-	var textarea = container.find('.aii-draft-instructions:first');
-	var custom_button = container.find('.aii-draft-custom:first');
+	var input = container.find('.aii-draft-instructions:first');
 
-	// Update counter and "Draft with instructions" button
-	function updateState() {
-		var value = textarea.val();
-		container.find('.aii-draft-counter:first').text(value.length+' / '+textarea.attr('maxlength'));
-		custom_button.prop('disabled', !$.trim(value));
+	function send() {
+		aiiDraftReply(modal, $.trim(input.val()));
 	}
 
-	function submitCustom() {
-		var instructions = $.trim(textarea.val());
-
-		if (instructions) {
-			aiiDraftReply(modal, instructions);
-		} else {
-			textarea.focus();
-		}
-	}
-
-	textarea.on('input', updateState);
-	updateState();
-
-	// Draft automatically
-	container.find('.aii-draft-auto:first').click(function(e) {
-		aiiDraftReply(modal, '');
+	container.find('.aii-draft-send:first').click(function(e) {
+		send();
 		e.preventDefault();
 	});
 
-	// Draft with instructions
-	custom_button.click(function(e) {
-		submitCustom();
-		e.preventDefault();
-	});
-
-	// Ctrl+Enter / Cmd+Enter
-	textarea.keydown(function(e) {
-		if (e.keyCode == 13 && (e.ctrlKey || e.metaKey)) {
-			submitCustom();
+	input.keydown(function(e) {
+		if (e.keyCode == 13) {
+			send();
 			e.preventDefault();
 		}
 	});
 
-	// Regenerate: show instructions used for the last draft
-	container.on('click', '.aii-draft-regenerate', function(e) {
-		$(this).addClass('hidden');
-		textarea.val(container.data('aii-last-instructions') || '');
-		updateState();
-		container.find('.aii-draft-chooser:first').removeClass('hidden');
-		textarea.focus();
-		e.preventDefault();
-	});
+	if (container.attr('data-auto-draft') == '1') {
+		aiiDraftReply(modal, '');
+	} else {
+		input.focus();
+	}
 }
 
 function aiiDraftReply(modal, instructions)
 {
 	var container = modal.children().find('.aii-draft:first');
-	var chooser = container.find('.aii-draft-chooser:first');
+	var drafts = container.find('.aii-drafts:first');
 	var loader = container.find('.modal-loader:first');
-	var result = container.find('.aii-draft-result:first');
+	var composer = container.find('.aii-draft-composer:first');
+	var input = composer.find('.aii-draft-instructions:first');
+	var send_button = composer.find('.aii-draft-send:first');
 
-	container.data('aii-last-instructions', instructions);
+	if (container.data('aii-busy')) {
+		return;
+	}
+	container.data('aii-busy', true);
 
-	chooser.addClass('hidden');
-	result.addClass('hidden').html('');
+	function done() {
+		container.data('aii-busy', false);
+		loader.addClass('hidden');
+		input.prop('disabled', false);
+		send_button.prop('disabled', false);
+		composer.removeClass('hidden');
+	}
+
+	drafts.children('.aii-draft-error').remove();
+	input.prop('disabled', true);
+	send_button.prop('disabled', true);
 	loader.removeClass('hidden');
 
 	fsAjax(
 		{
 			action: 'draft_reply',
 			conversation_id: container.attr('data-conversation-id'),
-			instructions: instructions
+			instructions: instructions,
+			// Last draft is passed only when the agent asks for changes
+			previous_draft: instructions ? (container.data('aii-last-reply') || '') : ''
 		},
 		laroute.route('aiintegration.ajax'), 
 		function(response) {
-			loader.addClass('hidden');
+			done();
 
 			if (typeof(response.html) != "undefined") {
-				result.html(response.html).removeClass('hidden');
+				var item = $('<div class="aii-draft-item"></div>');
+
+				if (instructions) {
+					item.append($('<p class="text-help aii-draft-asked"></p>').text('↳ '+instructions));
+				}
+				item.append(response.html);
+				drafts.append(item);
+
 				if (isAjaxSuccess(response)) {
-					aiiShowDraftReply(modal);
+					container.data('aii-last-reply', item.find('.aii-generated-reply-hidden:first').text());
+					input.val('');
+					aiiShowDraftReply(item, modal);
 				} else {
-					// Error is shown in the result, allow to retry
-					chooser.removeClass('hidden');
+					// Error is shown in the window, instructions are kept to retry
+					item.addClass('aii-draft-error');
 				}
 			} else {
-				chooser.removeClass('hidden');
 				showAjaxError(response);
 			}
+			input.focus();
 		}, true,
 		function() {
-			loader.addClass('hidden');
-			chooser.removeClass('hidden');
+			done();
 			showFloatingAlert('error', Lang.get("messages.ajax_error"));
 		}
 	);
 }
 
-function aiiShowDraftReply(modal)
+function aiiShowDraftReply(item, modal)
 {
 	// Show reply text
 	var i = 0;
-	var text = modal.children().find('.aii-generated-reply-hidden:first').text();
+	var text = item.find('.aii-generated-reply-hidden:first').text();
 	var cur_text = '';
-	var container = modal.children().find('.aii-generated-reply:first');
+	var container = item.find('.aii-generated-reply:first');
 	function typeWriter() {
 		if (i < text.length) {
 			cur_text += text.charAt(i);
@@ -296,7 +291,7 @@ function aiiShowDraftReply(modal)
 	typeWriter();
 
 	// Apply reply
-	modal.children().find('.aii-reply-apply:first').click(function(e) {
+	item.find('.aii-reply-apply:first').click(function(e) {
 		var body = container.text();
 		
 		if ($(".conv-reply-block").hasClass('conv-note-block')) {
