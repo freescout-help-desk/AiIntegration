@@ -10,9 +10,13 @@
                     <div class="aii-generated-reply-hidden hidden">{{ $reply }}</div>
 
                     @if ($translation)
-                        <pre id="aii_translation" class="collapse alert alert-info margin-bottom-5 aii-pre">{{ $translation }}</pre>
+                        @php
+                            // Several drafts can be shown in the same window.
+                            $translation_id = 'aii_translation_'.uniqid();
+                        @endphp
+                        <pre id="{{ $translation_id }}" class="collapse alert alert-info margin-bottom-5 aii-pre">{{ $translation }}</pre>
                         <p class="text-right">
-                            <a href="#aii_translation" data-toggle="collapse">{{ __('Translation') }} ({{ AiIntegration::userLanguageName() }}) <small>▼</small></a>
+                            <a href="#{{ $translation_id }}" data-toggle="collapse">{{ __('Translation') }} ({{ AiIntegration::userLanguageName() }}) <small>▼</small></a>
                         </p>
                     @endif
                 @else

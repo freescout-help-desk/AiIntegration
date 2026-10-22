@@ -179,11 +179,123 @@ function aiiCleanModels(selected_model)
 
 function aiiDraftReplyModal(modal)
 {
+	var container = modal.children().find('.aii-draft:first');
+	var input = container.find('.aii-draft-instructions:first');
+
+	function send() {
+		aiiDraftReply(modal, $.trim(input.val()));
+	}
+
+	container.find('.aii-draft-send:first').click(function(e) {
+		send();
+		e.preventDefault();
+	});
+
+	input.keydown(function(e) {
+		if (e.keyCode == 13) {
+			send();
+			e.preventDefault();
+		}
+	});
+
+	// Collapse / expand a draft
+	container.on('click', '.aii-draft-toggle', function(e) {
+		var item = $(this).closest('.aii-draft-item');
+		item.toggleClass('aii-draft-collapsed');
+		item.find('.aii-draft-caret:first').text(item.hasClass('aii-draft-collapsed') ? '▸' : '▾');
+		e.preventDefault();
+	});
+
+	if (container.attr('data-auto-draft') == '1') {
+		aiiDraftReply(modal, '');
+	} else {
+		input.focus();
+	}
+}
+
+function aiiDraftReply(modal, instructions)
+{
+	var container = modal.children().find('.aii-draft:first');
+	var drafts = container.find('.aii-drafts:first');
+	var loader = container.find('.modal-loader:first');
+	var composer = container.find('.aii-draft-composer:first');
+	var input = composer.find('.aii-draft-instructions:first');
+	var send_button = composer.find('.aii-draft-send:first');
+
+	if (container.data('aii-busy')) {
+		return;
+	}
+	container.data('aii-busy', true);
+
+	function done() {
+		container.data('aii-busy', false);
+		loader.addClass('hidden');
+		input.prop('disabled', false);
+		send_button.prop('disabled', false);
+		composer.removeClass('hidden');
+	}
+
+	drafts.children('.aii-draft-error').remove();
+	input.prop('disabled', true);
+	send_button.prop('disabled', true);
+	loader.removeClass('hidden');
+
+	fsAjax(
+		{
+			action: 'draft_reply',
+			conversation_id: container.attr('data-conversation-id'),
+			instructions: instructions,
+			// Last draft is passed only when the agent asks for changes
+			previous_draft: instructions ? (container.data('aii-last-reply') || '') : ''
+		},
+		laroute.route('aiintegration.ajax'), 
+		function(response) {
+			done();
+
+			if (typeof(response.html) != "undefined") {
+				var item = $('<div class="aii-draft-item"></div>');
+
+				if (isAjaxSuccess(response)) {
+					var number = drafts.children('.aii-draft-item').length+1;
+					var title = number+'. '+(instructions || container.attr('data-label-draft'));
+					var toggle = $('<a href="#" class="aii-draft-toggle text-help"><span class="aii-draft-caret">▾</span> <span class="aii-draft-title"></span></a>');
+
+					toggle.find('.aii-draft-title').text(title);
+					item.append(toggle).append($('<div class="aii-draft-body"></div>').append(response.html));
+
+					// Keep only the newest draft expanded
+					drafts.children('.aii-draft-item').addClass('aii-draft-collapsed')
+						.find('.aii-draft-caret').text('▸');
+					drafts.append(item);
+					item[0].scrollIntoView({block: 'start'});
+
+					container.data('aii-last-reply', item.find('.aii-generated-reply-hidden:first').text());
+					input.val('');
+					aiiShowDraftReply(item, modal);
+				} else {
+					// Error is shown in the window, instructions are kept to retry
+					item.addClass('aii-draft-error').append(response.html);
+					drafts.append(item);
+				}
+			} else {
+				showAjaxError(response);
+			}
+			input.focus();
+		}, true,
+		function() {
+			done();
+			showFloatingAlert('error', Lang.get("messages.ajax_error"));
+		}
+	);
+}
+
+function aiiShowDraftReply(item, modal)
+{
 	// Show reply text
 	var i = 0;
-	var text = $('.modal-body:visible .aii-generated-reply-hidden:first').text();
+	var text = item.find('.aii-generated-reply-hidden:first').text();
 	var cur_text = '';
-	var container = $('.aii-generated-reply:visible:first');
+	var container = item.find('.aii-generated-reply:first');
 	function typeWriter() {
 		if (i < text.length) {
 			cur_text += text.charAt(i);
@@ -195,14 +307,14 @@ function aiiDraftReplyModal(modal)
 	typeWriter();
 
 	// Apply reply
-	modal.children().find('.aii-reply-apply:first').click(function(e) {
-		var body = $('.aii-generated-reply:visible').text();
+	item.find('.aii-reply-apply:first').click(function(e) {
+		var body = container.text();
 		
 		if ($(".conv-reply-block").hasClass('conv-note-block')) {
 			hideReplyEditor();
 		}
 		showReplyForm();
-		setReplyBody(aiiNewLineToBr(body));
+		setReplyBody(aiiNewLineToBr(htmlEscape(body)));
 
 		modal.modal('hide')
 		e.preventDefault();

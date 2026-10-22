@@ -49,6 +49,49 @@ class AiIntegrationController extends Controller
                 }
                 break;
 
+            case 'draft_reply':
+                $conversation = Conversation::find($request->conversation_id);
+
+                if (!$conversation || !$auth_user->can('view', $conversation)) {
+                    $response['msg'] = __('Not enough permissions');
+                }
+
+                $instructions = is_string($request->instructions) ? trim($request->instructions) : '';
+                $previous_draft = is_string($request->previous_draft) ? trim($request->previous_draft) : '';
+
+                if (!$response['msg']) {
+                    $response['msg'] = \AiIntegration::validateDraftInstructions($instructions, $previous_draft);
+                }
+
+                if (!$response['msg']) {
+                    $result = \AiIntegration::draftReply($conversation, null, $instructions, $previous_draft);
+
+                    $reply = '';
+                    $translation = '';
+                    $error = '';
+
+                    if ($result['status'] == 'success' 
+                        && !empty($result['data'])
+                        && !empty($result['data']['reply'])
+                    ) {
+                        // Фильтруем черновик ответа и перевод от тегов think
+                        $reply = \AiIntegration::removeThinkingTags($result['data']['reply']);
+                        $translation = \AiIntegration::removeThinkingTags($result['data']['reply_translation'] ?? '');
+                        $response['status'] = 'success';
+                    } else {
+                        $error = __('Error occurred. Please try again later.');
+                        $response['msg'] = $error;
+                        \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
+                    }
+
+                    $response['html'] = \View::make('aiintegration::ajax_html/generate_reply', [
+                        'reply' => $reply,
+                        'translation' => $translation,
+                        'error' => $error,
+                    ])->render();
+                }
+                break;
+
             case 'assist':
                 $result = \AiIntegration::assist($request->sub_action, $request->body);
 
@@ -131,35 +174,16 @@ class AiIntegrationController extends Controller
         }
 
         switch ($request->action) {
-            case 'generate_reply':
+            case 'draft_reply_form':
                 $conversation = Conversation::find($request->param);
 
                 if (!$conversation || !$auth_user->can('view', $conversation)) {
                     \Helper::denyAccess();
                 }
 
-                $result = \AiIntegration::draftReply($conversation);
-
-                $reply = '';
-                $translation = '';
-                $error = '';
-
-                if ($result['status'] == 'success' 
-                    && !empty($result['data'])
-                    && !empty($result['data']['reply'])
-                ) {
-                    // Фильтруем черновик ответа и перевод от тегов think
-                    $reply = \AiIntegration::removeThinkingTags($result['data']['reply']);
-                    $translation = \AiIntegration::removeThinkingTags($result['data']['reply_translation'] ?? '');
-                } else {
-                    $error = __('Error occurred. Please try again later.');
-                    \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
-                }
-
-                $response = response()->view('aiintegration::ajax_html/generate_reply', [
-                    'reply' => $reply,
-                    'translation' => $translation,
-                    'error' => $error,
+                $response = response()->view('aiintegration::ajax_html/draft_reply_form', [
+                    'conversation_id' => $conversation->id,
+                    'auto_draft' => (bool)\AiIntegration::getSetting('auto_draft'),
                 ]);
 
                 return $this->disableCache($response);

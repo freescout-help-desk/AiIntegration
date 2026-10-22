@@ -80,6 +80,19 @@
     <h3 class="subheader">{{ __('Settings') }}</h3>
 
     <div class="form-group">
+        <label for="aiintegration_auto_draft" class="col-sm-2 control-label">{{ __('Draft Reply (AI)') }}</label>
+
+        <div class="col-sm-6">
+            <div class="controls">
+                <input type="hidden" name="settings[aiintegration.auto_draft]" value="0">
+                <label for="aiintegration_auto_draft" class="checkbox inline plain">
+                    <input type="checkbox" name="settings[aiintegration.auto_draft]" value="1" id="aiintegration_auto_draft" @if (old('settings.aiintegration.auto_draft', $settings['aiintegration.auto_draft']))checked="checked"@endif> <span class="text-help">{{ __('Generate draft automatically upon opening "Draft Reply (AI)" window') }}</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-group">
         <label class="col-sm-2 control-label">{{ __('Send Images to AI') }}</label>
 
         <div class="col-sm-6">
