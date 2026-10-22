@@ -41,3 +41,25 @@
 .aii-draft-collapsed .aii-draft-body {
 	display: none;
 }
+
+.aii-modal-reply .modal-body {
+	position: relative;
+}
+.aii-draft-overlay {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 10;
+	background: rgba(255, 255, 255, 0.6);
+	border-radius: inherit;
+}
+.aii-draft-overlay img {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	height: 150px;
+	width: auto;
+	transform: translateX(-50%) translateY(-50%);
+}

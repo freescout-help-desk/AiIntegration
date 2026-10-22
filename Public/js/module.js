@@ -183,7 +183,7 @@ function aiiDraftReplyModal(modal)
 	var input = container.find('.aii-draft-instructions:first');
 
 	function send() {
-		aiiDraftReply(modal, $.trim(input.val()));
+		aiiDraftReply(modal, $.trim(input.val()), true);
 	}
 
 	container.find('.aii-draft-send:first').click(function(e) {
@@ -207,17 +207,36 @@ function aiiDraftReplyModal(modal)
 	});
 
 	if (container.attr('data-auto-draft') == '1') {
-		aiiDraftReply(modal, '');
+		aiiDraftReply(modal, '', false);
 	} else {
 		input.focus();
 	}
 }
 
-function aiiDraftReply(modal, instructions)
+// White half-transparent layer with a loader above the modal body (header stays uncovered).
+function aiiDraftOverlay(modal, container)
+{
+	var overlay = modal.find('.aii-draft-overlay:first');
+
+	if (!overlay.length) {
+		overlay = $('<div class="aii-draft-overlay hidden"><img src="'+Vars.public_url+'/modules/aiintegration/img/loader.svg" /></div>');
+		var parent = modal.find('.modal-body:first');
+		if (!parent.length) {
+			parent = container;
+		}
+		parent.append(overlay);
+	}
+
+	return overlay;
+}
+
+// use_overlay is true when the draft is requested with the Send button,
+// otherwise (draft on open) the inline loader is shown.
+function aiiDraftReply(modal, instructions, use_overlay)
 {
 	var container = modal.children().find('.aii-draft:first');
 	var drafts = container.find('.aii-drafts:first');
-	var loader = container.find('.modal-loader:first');
+	var loader = use_overlay ? aiiDraftOverlay(modal, container) : container.find('.modal-loader:first');
 	var composer = container.find('.aii-draft-composer:first');
 	var input = composer.find('.aii-draft-instructions:first');
 	var send_button = composer.find('.aii-draft-send:first');
@@ -260,8 +279,18 @@ function aiiDraftReply(modal, instructions)
 					var title = number+'. '+(instructions || container.attr('data-label-draft'));
 					var toggle = $('<a href="#" class="aii-draft-toggle text-help"><span class="aii-draft-caret">▾</span> <span class="aii-draft-title"></span></a>');
 
+					// Show draft number and title.
 					toggle.find('.aii-draft-title').text(title);
+
 					item.append(toggle).append($('<div class="aii-draft-body"></div>').append(response.html));
+
+					// The only draft has nothing to collapse, so its toggle is hidden.
+					// Toggles appear when the second draft is generated.
+					if (number == 1) {
+						toggle.hide();
+					} else {
+						drafts.find('.aii-draft-toggle').show();
+					}
 
 					// Keep only the newest draft expanded
 					drafts.children('.aii-draft-item').addClass('aii-draft-collapsed')
