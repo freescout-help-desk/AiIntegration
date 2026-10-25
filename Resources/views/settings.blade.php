@@ -84,9 +84,8 @@
 
         <div class="col-sm-6">
             <div class="controls">
-                <input type="hidden" name="settings[aiintegration.auto_draft]" value="0">
                 <label for="aiintegration_auto_draft" class="checkbox inline plain">
-                    <input type="checkbox" name="settings[aiintegration.auto_draft]" value="1" id="aiintegration_auto_draft" @if (old('settings.aiintegration.auto_draft', $settings['aiintegration.auto_draft']))checked="checked"@endif> <span class="text-help">{{ __('Generate draft automatically upon opening "Draft Reply (AI)" window') }}</span>
+                    <input type="checkbox" name="settings[aiintegration.auto_draft]" value="1" id="aiintegration_auto_draft" @if (old('settings.aiintegration.auto_draft', $settings['aiintegration.auto_draft']))checked="checked"@endif> <span class="text-help">{{ __('Generate draft automatically upon opening "Draft Reply (AI)" window.') }}</span>
                 </label>
             </div>
         </div>
@@ -98,7 +97,6 @@
         <div class="col-sm-6">
             <div class="controls">
                 <div class="onoffswitch-wrap">
-                    <input type="hidden" name="settings[aiintegration.send_images]" value="0">
                     <div class="onoffswitch">
                         <input type="checkbox" name="settings[aiintegration.send_images]" value="1" id="aiintegration_send_images" class="onoffswitch-checkbox" @if (old('settings.aiintegration.send_images', $settings['aiintegration.send_images'])) checked="checked" @endif>
                         <label class="onoffswitch-label" for="aiintegration_send_images"></label>
@@ -117,7 +115,6 @@
         <div class="col-sm-6">
             <div class="controls">
                 <div class="onoffswitch-wrap">
-                    <input type="hidden" name="settings[aiintegration.include_notes]" value="0">
                     <div class="onoffswitch">
                         <input type="checkbox" name="settings[aiintegration.include_notes]" value="1" id="aiintegration_include_notes" class="onoffswitch-checkbox" @if (old('settings.aiintegration.include_notes', $settings['aiintegration.include_notes'])) checked="checked" @endif>
                         <label class="onoffswitch-label" for="aiintegration_include_notes"></label>
