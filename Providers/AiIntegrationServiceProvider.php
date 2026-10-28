@@ -97,6 +97,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'embedding_model' => 'gemini-embedding-001',
             // First - dot separated path: data.models
             'model_names_in_response' => 'models.name',
+            // Gemini returns names like "models/gemini-2.5-flash", while the
+            // chat endpoint expects the bare name.
+            'model_name_prefix' => 'models/',
         ],
         'anthropic' => [
             'name' => 'Anthropic (Claude)',
@@ -647,10 +650,16 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $path = implode('.', $parts);
             $models = array_pluck(array_get($response, $path, []), $column_name);
 
-            // Remove everything before "/" in model name.
-            $models = array_map(function($model) {
-                return preg_replace("#.*/#", '', $model);
-            }, $models);
+            // Model IDs are opaque strings and must be sent back unchanged
+            // (they may contain "/", e.g. "Qwen/Qwen3.8-27B"). Only strip
+            // the prefix which the provider adds to the names, if any.
+            // https://github.com/freescout-help-desk/AiIntegration/issues/21
+            $prefix = (string)self::getProviderConfig('model_name_prefix', $settings['provider'] ?? null);
+            if ($prefix !== '') {
+                $models = array_map(function($model) use ($prefix) {
+                    return strpos($model, $prefix) === 0 ? substr($model, strlen($prefix)) : $model;
+                }, $models);
+            }
         }
 
         return [
