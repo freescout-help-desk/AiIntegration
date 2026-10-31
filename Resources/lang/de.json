@@ -26,6 +26,9 @@
     "Send Notes to AI": "Notizen an die KI senden",
     "Send images embedded into messages to the AI. Requires a model which supports image input. Regular attachments are not sent.": "In Nachrichten eingebettete Bilder an die KI senden. Erfordert ein Modell, das Bildeingaben unterstützt. Reguläre Anhänge werden nicht gesendet.",
     "Summarize": "Zusammenfassen",
+    "Generated on :date": "Erstellt am :date",
+    "Refresh": "Aktualisieren",
+    "This summary is outdated. Refresh it to include the latest conversation activity.": "Diese Zusammenfassung ist veraltet. Aktualisieren Sie sie, um die neuesten Aktivitäten der Konversation einzubeziehen.",
     "Translation": "Übersetzung",
     "Use": "Verwenden",
     "Use (as Draft)": "Verwenden (als Entwurf)"

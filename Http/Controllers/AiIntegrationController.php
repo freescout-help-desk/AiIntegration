@@ -36,12 +36,14 @@ class AiIntegrationController extends Controller
                 }
 
                 if (!$response['msg']) {
-                    $result = \AiIntegration::summarize($conversation);
+                    $result = \AiIntegration::summarize($conversation, $request->input('refresh') == '1');
 
-                    if ($result['status'] == 'success' && !empty($result['data'])) {
+                    if ($result['status'] == 'success' && !empty($result['summary'])) {
                         $response['status'] = 'success';
-                        $result['data'] = \AiIntegration::removeThinkingTags($result['data']);
-                        $response['summary'] = htmlspecialchars($result['data']);
+                        $response['html'] = \View::make('aiintegration::partials/summary', [
+                            'summary' => $result['summary'],
+                            'summary_outdated' => $result['summary_outdated'],
+                        ])->render();
                     } else {
                         $response['msg'] = __('Error occurred. Please try again later.');
                         \AiIntegration::logApiError('Response: '.json_encode($result), \AiIntegration::METHOD_CHAT);
