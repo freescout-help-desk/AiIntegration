@@ -1,0 +1,13 @@
+{
+    "Enable AI Integration": "KI-Integration aktivieren",
+    "Disable AI features without removing the provider configuration.": "KI-Funktionen deaktivieren, ohne die Anbieter-Konfiguration zu entfernen.",
+    "Base prompt": "Grund-Prompt",
+    "Reset to default": "Auf Standard zurücksetzen",
+    "Used for draft replies. Mailbox and personal prompts can extend or replace it. Response format and translation requirements always apply. Save to apply changes or the reset.": "Gilt für Antwortentwürfe. Postfach- und persönliche Prompts können ihn erweitern oder ersetzen. Antwortformat und Übersetzungsvorgaben gelten weiterhin. Änderungen und Zurücksetzen werden mit Speichern übernommen.",
+    "Customize personal AI prompt": "Persönlichen KI-Prompt anpassen",
+    "Use inherited base prompt": "Übergeordneten Grund-Prompt verwenden",
+    "Custom prompt": "Eigener Prompt",
+    "When enabled, your text extends the inherited prompt. When disabled, enter a complete replacement. An empty extension keeps the inherited prompt. These settings apply to draft replies; response format and translation requirements always apply.": "Aktiviert: Ihr Text erweitert den übergeordneten Prompt. Deaktiviert: Geben Sie einen vollständigen Ersatz ein. Eine leere Erweiterung behält den übergeordneten Prompt bei. Diese Einstellungen gelten für Antwortentwürfe; Antwortformat und Übersetzungsvorgaben gelten weiterhin.",
+    "Personal prompts are applied after the mailbox prompt. Disabling inheritance replaces both the module and mailbox prompts. A personal prompt is used only while the user has permission to customize it.": "Persönliche Prompts werden nach dem Postfach-Prompt angewendet. Ohne Vererbung ersetzen sie sowohl den Modul- als auch den Postfach-Prompt. Ein persönlicher Prompt wird nur verwendet, solange der Benutzer das Recht zur Anpassung besitzt.",
+    "The mailbox prompt extends or replaces the module base prompt. Authorized users can then extend or replace the resulting prompt in their profile.": "Der Postfach-Prompt erweitert oder ersetzt den Grund-Prompt des Moduls. Berechtigte Benutzer können den daraus entstandenen Prompt anschließend in ihrem Profil erweitern oder ersetzen."
+}

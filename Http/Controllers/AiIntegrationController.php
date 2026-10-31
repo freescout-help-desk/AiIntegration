@@ -9,6 +9,27 @@ use Illuminate\Routing\Controller;
 
 class AiIntegrationController extends Controller
 { 
+    public function mailboxSettings($id)
+    {
+        abort_unless(auth()->user()->isAdmin(), 403);
+        $mailbox = \App\Mailbox::findOrFail($id);
+        return view('aiintegration::mailbox_settings', [
+            'mailbox' => $mailbox,
+            'prompt_settings' => \AiIntegration::mailboxPrompt($mailbox),
+        ]);
+    }
+
+    public function saveMailboxSettings($id, Request $request)
+    {
+        abort_unless(auth()->user()->isAdmin(), 403);
+        $mailbox = \App\Mailbox::findOrFail($id);
+        $settings = \AiIntegration::validatePrompt($request->input('aiintegration_prompt'));
+        $mailbox->setMeta('aiintegration_prompt', $settings);
+        $mailbox->save();
+        return redirect()->route('mailboxes.aiintegration', ['id' => $mailbox->id])
+            ->with('flash_success_floating', __('Settings saved'));
+    }
+
     /**
      * Ajax controller.
      */

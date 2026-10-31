@@ -2,6 +2,18 @@
     {{ csrf_field() }}
 
     <div class="form-group">
+        <label for="aiintegration_enabled" class="col-sm-2 control-label">{{ __('Enable AI Integration') }}</label>
+        <div class="col-sm-6">
+            <input type="hidden" name="settings[aiintegration.enabled]" value="0">
+            <div class="onoffswitch-wrap"><div class="onoffswitch">
+                <input type="checkbox" class="onoffswitch-checkbox" id="aiintegration_enabled" name="settings[aiintegration.enabled]" value="1" @if (old('settings.aiintegration.enabled', $settings['aiintegration.enabled'])) checked @endif>
+                <label class="onoffswitch-label" for="aiintegration_enabled"></label>
+            </div></div>
+            <p class="form-help">{{ __('Disable AI features without removing the provider configuration.') }}</p>
+        </div>
+    </div>
+
+    <div class="form-group">
         <label class="col-sm-2 control-label">{{ __('Status') }}</label>
         <div class="col-sm-6">
             <label class="control-label">
@@ -78,6 +90,16 @@
     </div>
 
     <h3 class="subheader">{{ __('Settings') }}</h3>
+
+    <div class="form-group{{ $errors->has('base_prompt') ? ' has-error' : '' }}">
+        <label for="aiintegration_base_prompt" class="col-sm-2 control-label">{{ __('Base prompt') }}</label>
+        <div class="col-sm-6">
+            <textarea id="aiintegration_base_prompt" name="settings[aiintegration.base_prompt]" rows="14" maxlength="{{ \AiIntegration::MAX_PROMPT_LENGTH }}" class="form-control">{{ old('settings.aiintegration.base_prompt', $settings['aiintegration.base_prompt'] ?: \AiIntegration::defaultBasePrompt()) }}</textarea>
+            @include('partials/field_error', ['field' => 'base_prompt'])
+            <button type="button" id="aii_reset_base_prompt" class="btn btn-default btn-sm margin-top-10" data-default="{{ \AiIntegration::defaultBasePrompt() }}">{{ __('Reset to default') }}</button>
+            <p class="form-help">{{ __('Used for draft replies. Mailbox and personal prompts can extend or replace it. Response format and translation requirements always apply. Save to apply changes or the reset.') }}</p>
+        </div>
+    </div>
 
     <div class="form-group">
         <label for="aiintegration_auto_draft" class="col-sm-2 control-label">{{ __('Draft Reply (AI)') }}</label>

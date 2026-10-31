@@ -1,0 +1,1 @@
+<li class="@if (Route::is('mailboxes.aiintegration')) active @endif"><a href="{{ route('mailboxes.aiintegration', ['id' => $mailbox->id]) }}"><i class="glyphicon glyphicon-cloud"></i> {{ __('AI Integration') }}</a></li>

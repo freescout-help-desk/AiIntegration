@@ -18,6 +18,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
 {
     const LOG_NAME = 'ai_integration';
     const MAX_TOKENS = 2000;
+    const PERM_EDIT_PROMPT = 'aiintegration.edit_prompt';
+    const MAX_PROMPT_LENGTH = 20000;
     // Max length of the instructions for drafting a reply provided by the support agent.
     const MAX_INSTRUCTIONS_LENGTH = 2000;
     // Max length of the previous draft passed back to the AI to be revised.
@@ -278,6 +280,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
     {
         // Add functions to providers config.
         self::extendProvidersConfig();
+        $this->promptHooks();
 
         // Add module's CSS file to the application layout.
         \Eventy::addFilter('stylesheets', function($styles) {
@@ -343,6 +346,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
 
             $params['settings'] = [
+                'aiintegration.enabled' => ['env' => 'AIINTEGRATION_ENABLED'],
+                'aiintegration.base_prompt' => [],
                 'aiintegration.provider' => [
                     'env' => 'AIINTEGRATION_PROVIDER',
                 ],
@@ -389,6 +394,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
 
             $settings = $request->settings ?? [];
+            \Validator::make(['base_prompt' => $settings['aiintegration.base_prompt'] ?? null], [
+                'base_prompt' => 'nullable|string|max:'.self::MAX_PROMPT_LENGTH,
+            ])->validate();
+            $settings['aiintegration.enabled'] = !empty($settings['aiintegration.enabled']) ? 1 : 0;
+            $settings['aiintegration.base_prompt'] = trim($settings['aiintegration.base_prompt'] ?? '');
             
             if (!empty($settings['aiintegration.base_url'])) {
                 try {
@@ -438,7 +448,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
 
             // Force connection check.
-            self::checkConnection($request);
+            if (!empty($request->settings['aiintegration.enabled'])) {
+                self::checkConnection($request);
+            }
 
             return $response;
         }, 20, 4);
@@ -487,6 +499,86 @@ class AiIntegrationServiceProvider extends ServiceProvider
         });
     }
 
+    protected function promptHooks()
+    {
+        \Eventy::addFilter('user_permissions.list', function ($permissions) {
+            $permissions[] = self::PERM_EDIT_PROMPT;
+            return $permissions;
+        });
+        \Eventy::addFilter('user_permissions.name', function ($name, $permission) {
+            return $permission === self::PERM_EDIT_PROMPT ? __('Customize personal AI prompt') : $name;
+        }, 20, 2);
+        \Eventy::addAction('user.edit.before_photo', function ($user) {
+            $actor = auth()->user();
+            if ($actor->isAdmin() || ($actor->id == $user->id && self::canEditPrompt($actor))) {
+                echo \View::make('aiintegration::partials/profile_prompt', ['user' => $user])->render();
+            }
+        });
+        \Eventy::addFilter('user.save_profile', function ($user, $request) {
+            if ($request->has('aiintegration_prompt')) {
+                $actor = auth()->user();
+                abort_unless($actor->isAdmin() || ($actor->id == $user->id && self::canEditPrompt($actor)), 403);
+                $prompt = self::validatePrompt($request->input('aiintegration_prompt'));
+                \Option::set('aiintegration.user_prompt.'.$user->id, $prompt);
+            }
+            return $user;
+        }, 20, 2);
+        \Eventy::addAction('mailboxes.settings.menu', function ($mailbox) {
+            if (auth()->user()->isAdmin()) {
+                echo \View::make('aiintegration::partials/mailbox_menu', ['mailbox' => $mailbox])->render();
+            }
+        });
+    }
+
+    public static function canEditPrompt($user)
+    {
+        return $user && ($user->isAdmin() || $user->hasPermission(self::PERM_EDIT_PROMPT));
+    }
+
+    public static function defaultBasePrompt()
+    {
+        return implode('. ', self::$system_instructions['draft_reply']);
+    }
+
+    public static function mailboxPrompt($mailbox)
+    {
+        return self::promptSettings($mailbox->getMeta('aiintegration_prompt', []));
+    }
+
+    public static function userPrompt($user)
+    {
+        return self::promptSettings(\Option::get('aiintegration.user_prompt.'.$user->id, []));
+    }
+
+    public static function promptSettings($settings)
+    {
+        $settings = is_array($settings) ? $settings : [];
+        return [
+            'use_base' => !isset($settings['use_base']) || (bool)$settings['use_base'],
+            'prompt' => isset($settings['prompt']) && is_string($settings['prompt']) ? $settings['prompt'] : '',
+        ];
+    }
+
+    public static function validatePrompt($input)
+    {
+        \Validator::make(['aiintegration_prompt' => $input], [
+            'aiintegration_prompt' => 'required|array',
+            'aiintegration_prompt.use_base' => 'required|boolean',
+            'aiintegration_prompt.prompt' => 'required_if:aiintegration_prompt.use_base,0|nullable|string|max:'.self::MAX_PROMPT_LENGTH,
+        ])->validate();
+        return self::promptSettings($input);
+    }
+
+    public static function applyPrompt($base, array $settings)
+    {
+        $prompt = trim($settings['prompt']);
+        // Never drop the inherited prompt for an empty replacement in old data.
+        if ($prompt === '') {
+            return $base;
+        }
+        return $settings['use_base'] ? $base."\n\n".$prompt : $prompt;
+    }
+
     // Add functions to providers config.
     public static function extendProvidersConfig()
     {
@@ -512,6 +604,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $settings = [];
 
         $fields = [
+            'enabled',
+            'base_prompt',
             'provider',
             'api_key',
             'base_url',
@@ -535,6 +629,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function getSetting($key)
     {
+        if ($key === 'base_prompt') {
+            return \Option::get('aiintegration.base_prompt', '');
+        }
         $value = config('aiintegration.'.$key) ?? '';
 
         if (in_array($key, ['api_key'])) {
@@ -551,7 +648,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function isActive()
     {
-        return \Option::get('aiintegration.active');
+        return self::getSetting('enabled') && \Option::get('aiintegration.active');
     }
 
     public static function getProviders()
@@ -1059,7 +1156,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 self::imageInstructions($images),
                 self::agentInstructions($instructions),
                 self::previousDraftInstructions($previous_draft)
-            )),
+            ), $conversation->mailbox),
             $user_prompt,
             $images,
             //self::$response_formats['draft_reply']
@@ -1158,9 +1255,26 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return $reply;
     }*/
 
-    public static function prepareInstructions($type, $extra = [])
+    public static function prepareInstructions($type, $extra = [], $mailbox = null)
     {
-        $instructions = implode('. ', array_merge(self::$system_instructions[$type], $extra));
+        if ($type == 'draft_reply') {
+            $base = trim((string)self::getSetting('base_prompt'));
+            if ($base === '') {
+                $base = self::defaultBasePrompt();
+            }
+            if ($mailbox) {
+                $base = self::applyPrompt($base, self::mailboxPrompt($mailbox));
+            }
+            $user = auth()->user();
+            if (self::canEditPrompt($user)) {
+                $base = self::applyPrompt($base, self::userPrompt($user));
+            }
+            // Required by the response parser and staff translation UI, even for replacements.
+            $extra[] = 'return only valid JSON with the fields reply and reply_translation; answer in the customer language; if the customer language is not :user_locale, provide reply_translation as an :user_locale translation, otherwise set reply_translation to an empty string';
+            $instructions = $base."\n\n".implode('. ', $extra);
+        } else {
+            $instructions = implode('. ', array_merge(self::$system_instructions[$type], $extra));
+        }
         $instructions = strtr($instructions, [
             ':user_locale' => self::userLanguageName()
         ]);

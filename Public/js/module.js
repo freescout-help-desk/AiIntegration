@@ -52,6 +52,9 @@ function aiiInit()
 function aiiInitSettings()
 {
 	$(document).ready(function() {
+        $('#aii_reset_base_prompt').on('click', function() {
+            $('#aiintegration_base_prompt').val($(this).attr('data-default')).trigger('change');
+        });
 		$("#aiintegration_provider").change(function(e){
 			var value = $(this).val();
 
