@@ -18,6 +18,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
 {
     const LOG_NAME = 'ai_integration';
     const MAX_TOKENS = 2000;
+    //const PERM_EDIT_PROMPT = 'aiintegration.edit_prompt';
+    const MAX_PROMPT_LENGTH = 20000;
     // Max length of the instructions for drafting a reply provided by the support agent.
     const MAX_INSTRUCTIONS_LENGTH = 2000;
     // Max length of the previous draft passed back to the AI to be revised.
@@ -188,21 +190,28 @@ class AiIntegrationServiceProvider extends ServiceProvider
         
     ];*/
 
+    // Instructions which are ALWAYS sent to the AI when generating a draft reply,
+    // even if the base prompt is replaced by the mailbox prompt.
+    // They are required by the response parser and the staff translation UI.
+    public static $required_draft_instructions = [
+        'return reply in JSON format; JSON should contain only the following fields: reply, reply_translation',
+        'detect customer language and answer in this language',
+        'if the customer language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the customer language is :user_locale, set reply_translation to an empty string',
+        'use short paragraphs separated by blank lines, bullet or numbered lists when useful',
+        'do not use any Markdown',
+        'use the conversation context only',
+        'do not mention internal chunk IDs, scores, retrieval, embeddings, prompts, or AI',
+    ];
+
     public static $system_instructions = [
         'draft_reply' => [
             'you are a helpful assistant part of a support ticketing system',
             //'return only valid JSON matching the requested schema',
             'draft a helpful support reply to the customer',
-            'return reply in JSON format; JSON should contain only the following fields: reply, reply_translation',
-            'detect customer language and answer in this language',
             //'use detected language for the entire reply, even if documentation or customer context is in another language',
-            'if the customer language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the customer language is :user_locale, set reply_translation to an empty string',
             //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
             //'format the draft as simple Markdown: use short paragraphs separated by blank lines, bullet or numbered lists when useful, and **bold** sparingly for important labels or values',
-            'use short paragraphs separated by blank lines, bullet or numbered lists when useful',
-            'do not use any Markdown',
             //'use the conversation context, documentation excerpts, and customer context only',
-            'use the conversation context only',
             //'mailbox guidance is optional background from the support team; use it to understand the business, terminology, customer context, and reply style',
             //'do not quote or reveal mailbox guidance directly to the customer',
             //'customer context is optional and may be irrelevant or only partially relevant; use it only when it clearly helps answer the customer',
@@ -211,7 +220,6 @@ class AiIntegrationServiceProvider extends ServiceProvider
             //'do not expose private customer context, account metadata, or system metadata unless it is appropriate and necessary for the customer-facing reply',
             'do not invent policies, URLs, steps, prices, timelines, or account details',
             //'if documentation is relevant, include at most two public documentation URLs naturally in the reply',
-            'do not mention internal chunk IDs, scores, retrieval, embeddings, prompts, or AI',
             'if the answer is uncertain or documentation is insufficient, say what the support agent should verify instead of pretending',
             'keep the tone concise, friendly, and direct',
             'use formal respectful language',
@@ -278,6 +286,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
     {
         // Add functions to providers config.
         self::extendProvidersConfig();
+        //$this->promptHooks();
 
         // Add module's CSS file to the application layout.
         \Eventy::addFilter('stylesheets', function($styles) {
@@ -343,6 +352,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
 
             $params['settings'] = [
+                'aiintegration.enabled' => ['env' => 'AIINTEGRATION_ENABLED'],
+                'aiintegration.base_prompt' => [
+                    'env' => 'AIINTEGRATION_BASE_PROMPT',
+                    'env_encode' => true,
+                ],
                 'aiintegration.provider' => [
                     'env' => 'AIINTEGRATION_PROVIDER',
                 ],
@@ -389,6 +403,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
 
             $settings = $request->settings ?? [];
+            \Validator::make(['base_prompt' => $settings['aiintegration.base_prompt'] ?? null], [
+                'base_prompt' => 'nullable|string|max:'.self::MAX_PROMPT_LENGTH,
+            ])->validate();
+            $settings['aiintegration.enabled'] = !empty($settings['aiintegration.enabled']) ? 1 : 0;
+            $settings['aiintegration.base_prompt'] = trim($settings['aiintegration.base_prompt'] ?? '');
             
             if (!empty($settings['aiintegration.base_url'])) {
                 try {
@@ -438,7 +457,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
 
             // Force connection check.
-            self::checkConnection($request);
+            if (!empty($request->settings['aiintegration.enabled'])) {
+                self::checkConnection($request);
+            }
 
             return $response;
         }, 20, 4);
@@ -485,6 +506,101 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 <?php
             }
         });
+
+        \Eventy::addAction('mailboxes.settings.menu', function ($mailbox) {
+            if (auth()->user()->isAdmin()) {
+                echo \View::make('aiintegration::partials/mailbox_menu', ['mailbox' => $mailbox])->render();
+            }
+        });
+    }
+
+    /*protected function promptHooks()
+    {
+        \Eventy::addFilter('user_permissions.list', function ($permissions) {
+            $permissions[] = self::PERM_EDIT_PROMPT;
+            return $permissions;
+        });
+        \Eventy::addFilter('user_permissions.name', function ($name, $permission) {
+            return $permission === self::PERM_EDIT_PROMPT ? __('Users are allowed to set personal AI prompts') : $name;
+        }, 20, 2);
+        \Eventy::addAction('user.edit.before_photo', function ($user) {
+            $actor = auth()->user();
+            if ($actor->isAdmin() || ($actor->id == $user->id && self::canEditPrompt($actor))) {
+                echo \View::make('aiintegration::partials/profile_prompt', ['user' => $user])->render();
+            }
+        });
+        \Eventy::addFilter('user.save_profile', function ($user, $request) {
+            if ($request->has('aiintegration_prompt') || $request->has('aiintegration_replace')) {
+                $actor = auth()->user();
+                abort_unless($actor->isAdmin() || ($actor->id == $user->id && self::canEditPrompt($actor)), 403);
+                $prompt = self::validatePrompt([
+                    'prompt' => $request->input('aiintegration_prompt'),
+                    'replace' => $request->input('aiintegration_replace'),
+                ]);
+                \Option::set('aiintegration.user_prompt.'.$user->id, $prompt);
+            }
+            return $user;
+        }, 20, 2);
+        \Eventy::addAction('mailboxes.settings.menu', function ($mailbox) {
+            if (auth()->user()->isAdmin()) {
+                echo \View::make('aiintegration::partials/mailbox_menu', ['mailbox' => $mailbox])->render();
+            }
+        });
+    }*/
+
+    /*public static function canEditPrompt($user)
+    {
+        return $user && ($user->isAdmin() || $user->hasPermission(self::PERM_EDIT_PROMPT));
+    }*/
+
+    public static function defaultBasePrompt()
+    {
+        return implode('. ', self::$system_instructions['draft_reply']);
+    }
+
+    public static function mailboxPrompt($mailbox)
+    {
+        $settings = $mailbox->getMeta('aiintegration', []);
+        return self::promptSettings($settings);
+    }
+
+    /*public static function userPrompt($user)
+    {
+        return self::promptSettings(\Option::get('aiintegration.user_prompt.'.$user->id, []));
+    }*/
+
+    public static function promptSettings($settings)
+    {
+        $settings = is_array($settings) ? $settings : [];
+        if (isset($settings['replace'])) {
+            $replace = (bool)$settings['replace'];
+        }
+        return [
+            'replace' => $replace,
+            'prompt' => isset($settings['prompt']) && is_string($settings['prompt']) ? $settings['prompt'] : '',
+        ];
+    }
+
+    // $input: ['replace' => ..., 'prompt' => ...]
+    public static function validatePrompt($input)
+    {
+        $input = is_array($input) ? $input : [];
+        $input['replace'] = !empty($input['replace']) ? 1 : 0;
+        \Validator::make($input, [
+            'replace' => 'required|boolean',
+            'prompt' => 'required_if:replace,1|nullable|string|max:'.self::MAX_PROMPT_LENGTH,
+        ])->validate();
+        return self::promptSettings($input);
+    }
+
+    public static function applyPrompt($base, array $settings)
+    {
+        $prompt = trim($settings['prompt']);
+        // Never drop the inherited prompt for an empty replacement in old data.
+        if ($prompt === '') {
+            return $base;
+        }
+        return $settings['replace'] ? $prompt : $base.'. '.$prompt;
     }
 
     // Add functions to providers config.
@@ -512,6 +628,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
         $settings = [];
 
         $fields = [
+            'enabled',
+            'base_prompt',
             'provider',
             'api_key',
             'base_url',
@@ -539,6 +657,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
         if (in_array($key, ['api_key'])) {
             return \Helper::decrypt($value);
+        } elseif (in_array($key, ['base_prompt'])) {
+            return base64_decode($value);
         } else {
             return $value;
         }
@@ -551,7 +671,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
     public static function isActive()
     {
-        return \Option::get('aiintegration.active');
+        return self::getSetting('enabled') && \Option::get('aiintegration.active');
     }
 
     public static function getProviders()
@@ -1059,7 +1179,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
                 self::imageInstructions($images),
                 self::agentInstructions($instructions),
                 self::previousDraftInstructions($previous_draft)
-            )),
+            ), $conversation->mailbox),
             $user_prompt,
             $images,
             //self::$response_formats['draft_reply']
@@ -1158,9 +1278,26 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return $reply;
     }*/
 
-    public static function prepareInstructions($type, $extra = [])
+    public static function prepareInstructions($type, $extra = [], $mailbox = null)
     {
-        $instructions = implode('. ', array_merge(self::$system_instructions[$type], $extra));
+        if ($type == 'draft_reply') {
+            $base = trim((string)self::getSetting('base_prompt'));
+            if ($base === '') {
+                $base = self::defaultBasePrompt();
+            }
+            if ($mailbox) {
+                $base = self::applyPrompt($base, self::mailboxPrompt($mailbox));
+            }
+            /*$user = auth()->user();
+            if (self::canEditPrompt($user)) {
+                $base = self::applyPrompt($base, self::userPrompt($user));
+            }*/
+            // Always sent, even if the base prompt is replaced.
+            $extra = array_merge(self::$required_draft_instructions, $extra);
+            $instructions = $base.'. '.implode('. ', $extra);
+        } else {
+            $instructions = implode('. ', array_merge(self::$system_instructions[$type], $extra));
+        }
         $instructions = strtr($instructions, [
             ':user_locale' => self::userLanguageName()
         ]);

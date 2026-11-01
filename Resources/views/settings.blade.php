@@ -2,6 +2,17 @@
     {{ csrf_field() }}
 
     <div class="form-group">
+        <label for="aiintegration_enabled" class="col-sm-2 control-label">{{ __('Enabled') }}</label>
+        <div class="col-sm-6">
+            <input type="hidden" name="settings[aiintegration.enabled]" value="0">
+            <div class="onoffswitch-wrap"><div class="onoffswitch">
+                <input type="checkbox" class="onoffswitch-checkbox" id="aiintegration_enabled" name="settings[aiintegration.enabled]" value="1" @if (old('settings.aiintegration.enabled', $settings['aiintegration.enabled'])) checked @endif>
+                <label class="onoffswitch-label" for="aiintegration_enabled"></label>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="form-group">
         <label class="col-sm-2 control-label">{{ __('Status') }}</label>
         <div class="col-sm-6">
             <label class="control-label">
@@ -77,10 +88,19 @@
         </div>
     </div>
 
-    <h3 class="subheader">{{ __('Settings') }}</h3>
+    <h3 class="subheader">{{ __('Draft Reply (AI)') }}</h3>
+
+    <div class="form-group{{ $errors->has('base_prompt') ? ' has-error' : '' }}">
+        <label for="aiintegration_base_prompt" class="col-sm-2 control-label">{{ __('Base Prompt') }}</label>
+        <div class="col-sm-6">
+            <textarea id="aiintegration_base_prompt" name="settings[aiintegration.base_prompt]" rows="14" maxlength="{{ \AiIntegration::MAX_PROMPT_LENGTH }}" class="form-control">{{ old('settings.aiintegration.base_prompt', $settings['aiintegration.base_prompt'] ?: \AiIntegration::defaultBasePrompt()) }}</textarea>
+            @include('partials/field_error', ['field' => 'base_prompt'])
+            <button type="button" id="aii_reset_base_prompt" class="btn btn-default btn-sm margin-top-10" data-default="{{ \AiIntegration::defaultBasePrompt() }}">{{ __('Reset to Default') }}</button>
+        </div>
+    </div>
 
     <div class="form-group">
-        <label for="aiintegration_auto_draft" class="col-sm-2 control-label">{{ __('Draft Reply (AI)') }}</label>
+        <label for="aiintegration_auto_draft" class="col-sm-2 control-label">&nbsp;</label>
 
         <div class="col-sm-6">
             <div class="controls">
@@ -90,6 +110,8 @@
             </div>
         </div>
     </div>
+
+    <h3 class="subheader">{{ __('Settings') }}</h3>
 
     <div class="form-group">
         <label class="col-sm-2 control-label">{{ __('Send Images to AI') }}</label>
