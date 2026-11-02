@@ -575,11 +575,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
     public static function promptSettings($settings)
     {
         $settings = is_array($settings) ? $settings : [];
-        if (isset($settings['replace'])) {
-            $replace = (bool)$settings['replace'];
-        }
+
         return [
-            'replace' => $replace,
+            'replace' => !empty($settings['replace']),
             'prompt' => isset($settings['prompt']) && is_string($settings['prompt']) ? $settings['prompt'] : '',
         ];
     }
