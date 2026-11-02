@@ -1213,8 +1213,12 @@ class AiIntegrationServiceProvider extends ServiceProvider
     // published reply or note should mark a stored summary as outdated.
     public static function summaryFingerprint($conversation)
     {
-        $threads = $conversation->getThreads(null, null, [Thread::TYPE_CUSTOMER, Thread::TYPE_MESSAGE, Thread::TYPE_NOTE]);
-        return md5($conversation->subject.$conversation->customer_email.$threads->max('id'));
+        // Fetch only the last thread ID.
+        $last_thread_id = $conversation->threads()
+            ->where('state', Thread::STATE_PUBLISHED)
+            ->whereIn('type', [Thread::TYPE_CUSTOMER, Thread::TYPE_MESSAGE, Thread::TYPE_NOTE])
+            ->max('id');
+        return md5($conversation->subject.$conversation->customer_email.$last_thread_id);
     }
 
     public static function summarize($conversation)
