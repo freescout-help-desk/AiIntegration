@@ -6,7 +6,7 @@ use App\Attachment;
 use App\Conversation;
 use App\Customer;
 use App\Thread;
-use Modules\AiIntegration\Entities\ConversationSummary;
+use Modules\AiIntegration\Entities\AiiSummary;
 use Spatie\Activitylog\Models\Activity;
 use Modules\AiIntegration\Misc\ApiCallException;
 use Illuminate\Support\ServiceProvider;
@@ -451,7 +451,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
             echo \View::make('aiintegration::partials/conv_panel', [
                 'conversation_id' => $conversation->id,
-                'summary' => $summary = ConversationSummary::find($conversation->id),
+                'summary' => $summary = AiiSummary::find($conversation->id),
                 'summary_outdated' => $summary && $summary->fingerprint !== self::summaryFingerprint($conversation),
             ])->render();
         }, 25, 2);
@@ -1094,32 +1094,23 @@ class AiIntegrationServiceProvider extends ServiceProvider
     public static function summaryFingerprint($conversation)
     {
         $threads = $conversation->getThreads(null, null, [Thread::TYPE_CUSTOMER, Thread::TYPE_MESSAGE, Thread::TYPE_NOTE]);
-        $snapshot = [];
-        foreach ($threads as $thread) {
-            $snapshot[$thread->id] = [$thread->type, $thread->body, (string)$thread->updated_at];
-        }
-        ksort($snapshot);
-
-        return hash('sha256', serialize([
-            $conversation->subject, $conversation->customer_email,
-            (bool)self::getSetting('include_notes'), (bool)self::getSetting('send_images'), $snapshot,
-        ]));
+        return md5($conversation->subject.$conversation->customer_email.$threads->max('id'));
     }
 
-    public static function summarize($conversation, $refresh = false)
+    public static function summarize($conversation)
     {
-        $summary = ConversationSummary::find($conversation->id);
-        if ($summary && !$refresh) {
-            return [
-                'status' => 'success',
-                'summary' => $summary,
-                'summary_outdated' => $summary->fingerprint !== self::summaryFingerprint($conversation),
-            ];
-        }
-
         // Capture before the API call so activity arriving during generation
         // cannot make a summary of older messages appear current.
         $fingerprint = self::summaryFingerprint($conversation);
+        $summary = AiiSummary::find($conversation->id);
+        if ($summary && $summary->fingerprint === $fingerprint) {
+            return [
+                'status' => 'success',
+                'summary' => $summary,
+                'summary_outdated' => false,
+            ];
+        }
+
         $threads = self::getContextThreads($conversation);
 
         $images = self::getInlineImages($threads);
@@ -1143,9 +1134,9 @@ class AiIntegrationServiceProvider extends ServiceProvider
         if ($result['status'] == 'success' && is_string($result['data'] ?? null)) {
             $text = self::removeThinkingTags($result['data']);
             if ($text !== '') {
-                $summary = ConversationSummary::updateOrCreate(
+                $summary = AiiSummary::updateOrCreate(
                     ['conversation_id' => $conversation->id],
-                    ['summary' => $text, 'generated_at' => gmdate('Y-m-d H:i:s'), 'fingerprint' => $fingerprint]
+                    ['summary' => $text, 'fingerprint' => $fingerprint]
                 );
                 $result['summary'] = $summary;
                 $result['summary_outdated'] = $fingerprint !== self::summaryFingerprint($conversation);

@@ -41,9 +41,6 @@ function aiiInit()
 		$("#aii_summarize").click(function(e){
 	    	aiiSummarize($(this))
 	    });
-		$('#aii_summary').on('click', '.aii-refresh-summary', function() {
-			aiiSummarize($(this));
-		});
 
 	    $('.aii-editor-actions li').click(function(e){
 	    	aiiAssist($(this));
@@ -370,7 +367,6 @@ function aiiSummarize(button)
 	fsAjax(
 		{
 			action: 'summarize',
-			refresh: button.hasClass('aii-refresh-summary') ? 1 : 0,
 			conversation_id: getGlobalAttr('conversation_id')
 		},
 		laroute.route('aiintegration.ajax'), 
@@ -379,9 +375,13 @@ function aiiSummarize(button)
 			button.prop('disabled', false);
 
 			if (isAjaxSuccess(response) && typeof(response.html) != "undefined") {
-				// Show Summary
-				$('#aii_summary').html(response.html).removeClass('hidden');
-				$('#aii_summarize').addClass('hidden');
+				if (response.summary_outdated) {
+					$('#aii_summary').html('').addClass('hidden');
+					$('#aii_summarize').removeClass('hidden');
+				} else {
+					$('#aii_summary').html(response.html).removeClass('hidden');
+					$('#aii_summarize').addClass('hidden');
+				}
 			} else {
 				showAjaxError(response);
 			}

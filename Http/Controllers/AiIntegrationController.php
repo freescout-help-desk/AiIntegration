@@ -36,10 +36,11 @@ class AiIntegrationController extends Controller
                 }
 
                 if (!$response['msg']) {
-                    $result = \AiIntegration::summarize($conversation, $request->input('refresh') == '1');
+                    $result = \AiIntegration::summarize($conversation);
 
                     if ($result['status'] == 'success' && !empty($result['summary'])) {
                         $response['status'] = 'success';
+                        $response['summary_outdated'] = $result['summary_outdated'];
                         $response['html'] = \View::make('aiintegration::partials/summary', [
                             'summary' => $result['summary'],
                             'summary_outdated' => $result['summary_outdated'],
