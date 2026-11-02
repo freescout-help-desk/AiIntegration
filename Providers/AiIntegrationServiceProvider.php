@@ -6,6 +6,7 @@ use App\Attachment;
 use App\Conversation;
 use App\Customer;
 use App\Thread;
+use Modules\AiIntegration\Entities\AiiSummary;
 use Spatie\Activitylog\Models\Activity;
 use Modules\AiIntegration\Misc\ApiCallException;
 use Illuminate\Support\ServiceProvider;
@@ -471,6 +472,8 @@ class AiIntegrationServiceProvider extends ServiceProvider
             }
             echo \View::make('aiintegration::partials/conv_panel', [
                 'conversation_id' => $conversation->id,
+                'summary' => $summary = AiiSummary::find($conversation->id),
+                'summary_outdated' => $summary && $summary->fingerprint !== self::summaryFingerprint($conversation),
             ])->render();
         }, 25, 2);
 
@@ -1206,8 +1209,28 @@ class AiIntegrationServiceProvider extends ServiceProvider
         return '';
     }
 
+    // Include notes even when they are excluded from the AI context: any new
+    // published reply or note should mark a stored summary as outdated.
+    public static function summaryFingerprint($conversation)
+    {
+        $threads = $conversation->getThreads(null, null, [Thread::TYPE_CUSTOMER, Thread::TYPE_MESSAGE, Thread::TYPE_NOTE]);
+        return md5($conversation->subject.$conversation->customer_email.$threads->max('id'));
+    }
+
     public static function summarize($conversation)
     {
+        // Capture before the API call so activity arriving during generation
+        // cannot make a summary of older messages appear current.
+        $fingerprint = self::summaryFingerprint($conversation);
+        $summary = AiiSummary::find($conversation->id);
+        if ($summary && $summary->fingerprint === $fingerprint) {
+            return [
+                'status' => 'success',
+                'summary' => $summary,
+                'summary_outdated' => false,
+            ];
+        }
+
         $threads = self::getContextThreads($conversation);
 
         $images = self::getInlineImages($threads);
@@ -1227,6 +1250,18 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $user_prompt,
             $images,
         );
+
+        if ($result['status'] == 'success' && is_string($result['data'] ?? null)) {
+            $text = self::removeThinkingTags($result['data']);
+            if ($text !== '') {
+                $summary = AiiSummary::updateOrCreate(
+                    ['conversation_id' => $conversation->id],
+                    ['summary' => $text, 'fingerprint' => $fingerprint]
+                );
+                $result['summary'] = $summary;
+                $result['summary_outdated'] = $fingerprint !== self::summaryFingerprint($conversation);
+            }
+        }
 
         return $result;
     }
