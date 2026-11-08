@@ -12,7 +12,7 @@ class CreateAiiSummariesTable extends Migration
             $table->unsignedInteger('conversation_id')->primary();
             $table->longText('summary');
             $table->string('fingerprint', 32);
-            $table->foreign('conversation_id')->references('id')->on('conversations')->onDelete('cascade');
+            //$table->foreign('conversation_id')->references('id')->on('conversations')->onDelete('cascade');
         });
     }
 
