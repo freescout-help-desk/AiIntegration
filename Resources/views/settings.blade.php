@@ -161,13 +161,36 @@
         </div>
     </div>
 
+    <h3 class="subheader">{{ __('Automatic Priority Detection') }}</h3>
+
+    <div class="form-group">
+        <label class="col-sm-2 control-label">&nbsp;</label>
+
+        <div class="col-sm-6">
+            <p class="margin-bottom-0">
+                {{ __('Detect Priority for new conversations (created by customers) and do the following:') }}
+            </p>
+
+            <div class="controls">
+                <label for="aiintegration_priority_auto_set" class="checkbox inline plain">
+                    <input type="checkbox" name="settings[aiintegration.priority_auto_set]" value="1" id="aiintegration_priority_auto_set" @if (old('settings.aiintegration.priority_auto_set', $settings['aiintegration.priority_auto_set']))checked="checked"@endif> <span class="text-help">{{ __('Set conversation Priority') }}</span>
+                </label>
+            </div>
+            <div class="controls">
+                <label for="aiintegration_priority_workflow" class="checkbox inline plain">
+                    <input type="checkbox" name="settings[aiintegration.priority_workflow]" value="1" id="aiintegration_priority_workflow" @if (old('settings.aiintegration.priority_workflow', $settings['aiintegration.priority_workflow']))checked="checked"@endif @if (!App\Module::isActive('workflows')) disabled @endif> <span class="text-help">{{ __('Run Workflow Condition') }}: <strong>"{{ __('AI Detected Priority') }}"</strong> @if (!App\Module::isActive('workflows')) ({{ __('Requires Workflows Module') }})@endif</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
     <div class="form-group margin-top margin-bottom">
         <div class="col-sm-6 col-sm-offset-2">
             <button type="submit" class="btn btn-primary">
                 {{ __('Save') }}
             </button>
             &nbsp;
-            <a href="?check_connection=1" class="btn btn-default btn-sm">{{ __('Check Connection') }}</a>
+            <a href="?check_connection=1" class="btn btn-default"><small>{{ __('Check Connection') }}</small></a>
         </div>
     </div>
 </form>
