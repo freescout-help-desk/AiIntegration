@@ -16,6 +16,7 @@ Google's Gemini offers [API keys](https://aistudio.google.com/api-keys) with rel
 * Drafting replies with AI.
 * Summarizing conversations.
 * Making replies more professional (checking spelling, grammar, etc).
+* Automatic conversation Priority detection.
 
 ## Screenshots
 
