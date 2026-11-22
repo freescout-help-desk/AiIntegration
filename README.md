@@ -17,6 +17,7 @@ Google's Gemini offers [API keys](https://aistudio.google.com/api-keys) with rel
 * Summarizing conversations.
 * Making replies more professional (checking spelling, grammar, etc).
 * Automatic conversation Priority detection.
+* Automatic Spam filtering (via [Spam Filter Module](https://freescout.net/module/spam-filter/)).
 
 ## Screenshots
 
