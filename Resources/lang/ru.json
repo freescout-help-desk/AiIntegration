@@ -28,5 +28,14 @@
     "Summarize": "Кратко изложить",
     "Translation": "Перевод",
     "Use": "Использовать",
-    "Use (as Draft)": "Использовать (как черновик)"
+    "Use (as Draft)": "Использовать (как черновик)",
+    "Base Prompt": "Основной промт",
+    "Reset to Default": "По умолчанию",
+    "Automatic Priority Detection": "Автоопределение приоритета",
+    "Detect Priority for new conversations (created by customers) and do the following:": "Определять приоритет новых тикетов и затем:",
+    "Set conversation Priority": "Установить приоритет тикета",
+    "Run Workflow Condition: \"AI Detected Priority\"": "Запустить сценарий: \"AI Detected Priority\"",
+    "AI Draft Prompt": "Промпт черновика",
+    "Replace base prompt": "Заменить основной промт",
+    "you are a helpful assistant part of a support ticketing system. draft a helpful support reply to the customer. do not invent policies, URLs, steps, prices, timelines, or account details. if the answer is uncertain or documentation is insufficient, say what the support agent should verify instead of pretending. keep the tone concise, friendly, and direct. use formal respectful language": "Ты — полезный ассистент в системе обработки обращений службы поддержки. Твоя задача — подготовить полезный ответ клиенту от имени службы поддержки.\n\nПравила:\n- Не выдумывай правила, ссылки, шаги, цены, сроки и данные учётной записи.\n- Если информации недостаточно или ответ неоднозначен, не притворяйся, что знаешь ответ. Вместо этого укажи, что должен проверить агент поддержки.\n- Пиши кратко, дружелюбно и прямо.\n- Используй официально-вежливый язык.\n- Выводи только готовый текст ответа клиенту, без пояснений и служебных комментариев."
 }
