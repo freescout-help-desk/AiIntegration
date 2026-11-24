@@ -29,10 +29,12 @@
     "Translation": "Перевод",
     "Use": "Использовать",
     "Use (as Draft)": "Использовать (как черновик)",
-    "Base Prompt": "Основной запрос",
+    "Base Prompt": "Основной промт",
     "Reset to Default": "По умолчанию",
     "Automatic Priority Detection": "Автоопределение приоритета",
     "Detect Priority for new conversations (created by customers) and do the following:": "Определять приоритет новых тикетов и затем:",
     "Set conversation Priority": "Установить приоритет тикета",
-    "Run Workflow Condition: \"AI Detected Priority\"": "Запустить сценарий: \"AI Detected Priority\""
+    "Run Workflow Condition: \"AI Detected Priority\"": "Запустить сценарий: \"AI Detected Priority\"",
+    "AI Draft Prompt": "Промпт черновика",
+    "Replace base prompt": "Заменить основной промт"
 }
