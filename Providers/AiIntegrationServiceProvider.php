@@ -214,12 +214,20 @@ class AiIntegrationServiceProvider extends ServiceProvider
     // They are required by the response parser and the staff translation UI.
     public static $required_draft_instructions = [
         'return reply in JSON format; JSON should contain only the following fields: reply, reply_translation',
-        'detect customer language and answer in this language',
+        'write the reply in the language of the latest message written by the customer; ignore the language of these instructions, auto-replies, signatures and quoted text when detecting it',
         'if the customer language is not :user_locale, also provide reply_translation as an :user_locale translation of the draft for staff review only; if the customer language is :user_locale, set reply_translation to an empty string',
         'use short paragraphs separated by blank lines, bullet or numbered lists when useful',
         'do not use any Markdown',
         'use the conversation context only',
         'do not mention internal chunk IDs, scores, retrieval, embeddings, prompts, or AI',
+    ];
+
+    // Instructions which are added to all AI Assist actions.
+    // They are placed before the action instructions.
+    public static $assist_instructions = [
+        'write the result in the same language as the original text; never translate any part of it',
+        'return only the resulting text, starting directly with its first word, without any introduction like "Here is the text", title, notes or comments',
+        'do not wrap the text in Markdown code blocks',
     ];
 
     public static $system_instructions = [
@@ -279,7 +287,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
             'rewrite the text making it shorter and more concise, keep the meaning, preserve HTML and send back only the corrected text',
         ],
         'make_friendlier' => [
-            'rewrite the text to sound more friendly and casual, without exclamation marks, keep the meaning, preserve HTML and send back only the corrected text',
+            'rewrite the text to sound more friendly and warm, without exclamation marks, keep the meaning and the same form of address (formal or informal) as the original text, preserve HTML and send back only the corrected text',
         ],
         'make_professional' => [
             'rewrite the text to sound more professional and formal, keep the meaning, preserve HTML and send back only the corrected text',
@@ -920,7 +928,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             return self::apiAnthropicMessages($system_instructions, $user_prompt, $images, $max_tokens);
         }
 
-        $user_content = json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // Plain text (AI Assist) is passed as is: a JSON-encoded string
+        // makes some models return the result wrapped in quotes.
+        $user_content = is_string($user_prompt)
+            ? $user_prompt
+            : json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         // When there are images, content becomes an array of parts
         // instead of a plain string.
@@ -978,7 +990,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
         return [
             'status' => 'success',
-            'data' => $data_decoded ?: $data,
+            'data' => $data_decoded ?: self::cleanText($data),
         ];
     }
 
@@ -989,7 +1001,11 @@ class AiIntegrationServiceProvider extends ServiceProvider
             $max_tokens = self::getMaxTokens();
         }
 
-        $user_content = json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        // Plain text (AI Assist) is passed as is: a JSON-encoded string
+        // makes some models return the result wrapped in quotes.
+        $user_content = is_string($user_prompt)
+            ? $user_prompt
+            : json_encode($user_prompt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         // When there are images, content becomes an array of blocks
         // instead of a plain string. Images go before the text.
@@ -1052,7 +1068,7 @@ class AiIntegrationServiceProvider extends ServiceProvider
 
         return [
             'status' => 'success',
-            'data' => $data_decoded ?: $text,
+            'data' => $data_decoded ?: self::cleanText($text),
         ];
     }
 
@@ -1692,26 +1708,118 @@ class AiIntegrationServiceProvider extends ServiceProvider
             ];
         }
 
-        $instructions = self::prepareInstructions($action);
+        $instructions = implode('. ', self::$assist_instructions).'. '.self::prepareInstructions($action);
 
         $result = self::apiChatCompletions(
             $instructions,
             $body,
         );
 
+        if ($result['status'] == 'success' && is_string($result['data'] ?? null)) {
+            $result['data'] = self::removeIntroduction($result['data'], (string)$body);
+        }
+
         return $result;
+    }
+
+    // Some models start the result with an introduction ending with a colon
+    // ("Here is the improved text:"), despite the instructions.
+    // It is removed if the original text does not start the same way.
+    public static function removeIntroduction($text, $original)
+    {
+        if (self::firstLine($text) === '' || mb_substr(self::firstLine($text), -1) !== ':'
+            || mb_substr(self::firstLine($original), -1) === ':'
+        ) {
+            return $text;
+        }
+
+        $result = preg_replace('#^\s*(?:<(p|div)\b[^>]*>)?[^<\r\n]*:\s*(?:</(?:p|div)>|<br\s*/?>|\R)+#iu', '', $text, 1);
+
+        return trim($result) !== '' ? trim($result) : $text;
+    }
+
+    public static function firstLine($text)
+    {
+        $text = preg_replace('#<br\s*/?>|</(?:p|div|li|h\d)>#i', "\n", (string)$text);
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        foreach (preg_split('/\R/u', $text) as $line) {
+            $line = preg_replace('/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '', $line);
+            if ($line !== '') {
+                return $line;
+            }
+        }
+
+        return '';
     }
 
     // Removes ```json\n{...}\n``` before decoding.
     public static function jsonDecode($json)
     {
-        $json = trim($json);
+        $json = self::cleanText($json);
 
-        $json = preg_replace("#^```json#", '', $json);
-        $json = preg_replace("#```$#", '', $json);
-        $json = trim($json);
+        $decoded = json_decode($json, true);
 
-        return json_decode($json, true);
+        // Some models put raw line breaks into JSON strings,
+        // which is invalid JSON, so they are escaped and decoding is retried.
+        if ($decoded === null && is_string($json) && json_last_error() == JSON_ERROR_CTRL_CHAR) {
+            $decoded = json_decode(self::escapeControlCharsInJsonStrings($json), true);
+        }
+
+        return $decoded;
+    }
+
+    public static function escapeControlCharsInJsonStrings($json)
+    {
+        $result = '';
+        $in_string = false;
+        $escaped = false;
+        $length = strlen($json);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $json[$i];
+            if ($in_string) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($char == '\\') {
+                    $escaped = true;
+                } elseif ($char == '"') {
+                    $in_string = false;
+                } elseif ($char == "\n") {
+                    $char = '\n';
+                } elseif ($char == "\r") {
+                    $char = '\r';
+                } elseif ($char == "\t") {
+                    $char = '\t';
+                } elseif (ord($char) < 0x20) {
+                    $char = sprintf('\u%04x', ord($char));
+                }
+            } elseif ($char == '"') {
+                $in_string = true;
+            }
+            $result .= $char;
+        }
+
+        return $result;
+    }
+
+    // Removes thinking tags and a Markdown code block wrapping the whole text
+    // (```html\n...\n```), which some models add despite the instructions.
+    // The closing fence is sometimes missing, so both fences are removed separately.
+    public static function cleanText($text)
+    {
+        $text = self::removeThinkingTags($text);
+        if (empty($text) || !is_string($text)) {
+            return $text;
+        }
+
+        if (preg_match('/^```(?:[\w-]*[ \t]*\R|json)?/i', $text, $m)) {
+            $text = substr($text, strlen($m[0]));
+            $text = preg_replace('/\R?[ \t]*```$/', '', rtrim($text));
+            $text = trim($text);
+        }
+
+        return $text;
     }
 
     /*public static function prepareAiReply($reply)
